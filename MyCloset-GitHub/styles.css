@@ -210,3 +210,13 @@ input:not([type='checkbox']):not([type='radio']):not([type='color']),select,text
 input::placeholder,textarea::placeholder{color:#8e6b80}.optional{color:#89697b}.garment-detail-meta dt{color:#8b647c}.connection-status,.header-connection{color:#667b4c}.device-card .connection-status{color:#667b4c}.device-links>summary{color:#8e5c7e}.install-guide li::before{color:#8d5277}.device-note [role=status]{color:#79616f}/* Keep the weather invitation together as a single readable group. */
 .weather-placeholder{justify-content:flex-start;align-items:flex-start;flex-wrap:nowrap;gap:20px}.weather-placeholder>div{flex:1;min-width:0}.weather-placeholder>.weather-symbol{flex-shrink:0;margin-top:3px}.weather-placeholder .eyebrow{margin-bottom:6px;font-size:10px}.weather-placeholder h2{margin-bottom:8px}.weather-placeholder>div>.btn{margin-top:15px}.weather-placeholder>div>p:not(.eyebrow){color:#79616f}
 @media(max-width:600px){.weather-placeholder{gap:13px}.weather-placeholder>div>.btn{margin-top:13px}}
+/* Shopping search: readable controls and stable layout on narrow screens. */
+.filters.shopping-filters{display:grid;grid-template-columns:minmax(180px,1.8fr) minmax(145px,1fr) minmax(180px,1fr);gap:12px;margin-bottom:13px;padding:18px}
+.shopping-filters .search-field{min-width:0;width:100%}
+.shopping-filters .search-field input{padding-left:43px}
+.shopping-filters select{width:100%;max-width:none}
+.shopping-results-line{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;min-height:42px;margin:0 2px 20px}
+.shopping-result-count{font-size:12px;line-height:1.8;color:var(--muted)}
+.shopping-results-line>.btn{min-height:44px;font-size:12px}
+@media(max-width:1100px){.filters.shopping-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.shopping-filters .search-field{grid-column:1/-1}}
+@media(max-width:560px){.filters.shopping-filters{grid-template-columns:1fr;gap:10px;padding:14px}.shopping-filters .search-field{grid-column:auto}.shopping-filters select,.shopping-filters input{font-size:16px}.shopping-results-line{gap:6px;margin-bottom:17px}.shopping-results-line>.btn{padding-right:8px;padding-left:8px}.shopping-result-count{font-size:12px}}

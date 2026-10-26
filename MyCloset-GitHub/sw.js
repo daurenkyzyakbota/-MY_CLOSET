@@ -1,5 +1,5 @@
-const CACHE='mycloset-shell-v4-public-bota-20261027';
-const CORE=['./','./styles.css','./app.mjs','./model.mjs','./stylist.mjs','./shopping.mjs','./platform.mjs','./qrcode.mjs','./weather.mjs','./manifest.webmanifest','./assets/style-editorial.webp','./assets/fonts/manrope.ttf','./assets/fonts/cormorant-garamond.ttf','./assets/fonts/cormorant-garamond-italic.ttf','./assets/app-icon-192.png','./assets/app-icon-512.png'];
+const CACHE='mycloset-shell-v4-shopping-filters-20261027';
+const CORE=['./','./styles.css','./app.mjs','./model.mjs','./stylist.mjs','./shopping.mjs','./shopping-filters.mjs','./platform.mjs','./qrcode.mjs','./weather.mjs','./manifest.webmanifest','./assets/style-editorial.webp','./assets/fonts/manrope.ttf','./assets/fonts/cormorant-garamond.ttf','./assets/fonts/cormorant-garamond-italic.ttf','./assets/app-icon-192.png','./assets/app-icon-512.png'];
 async function cacheable(response,url){
   if(!response.ok||response.redirected||['opaque','opaqueredirect'].includes(response.type))return false;
   const mime=(response.headers.get('content-type')||'').split(';')[0].trim().toLowerCase();

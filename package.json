@@ -1,26 +1,19 @@
 {
-  "name": "nextjs-practice",
-  "version": "0.1.0",
+  "name": "mycloset",
+  "version": "3.0.0",
   "private": true,
+  "type": "module",
+  "description": "MyCloset — гардероб, образы и личный стиль",
+  "engines": { "node": ">=24.0.0 <25" },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start --hostname 0.0.0.0",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "next": "16.4.2",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
-  },
-  "devDependencies": {
-    "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.2",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   }
 }

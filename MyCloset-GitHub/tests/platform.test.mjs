@@ -4,6 +4,7 @@ import {readFile,access} from 'node:fs/promises';
 import vm from 'node:vm';
 import {QrCode} from '../qrcode.mjs';
 import {HOSTED_URL,requestAppJson} from '../platform.mjs';
+import {createWeatherService} from '../weather.mjs';
 
 const site=new URL('../',import.meta.url);
 const workerSource=await readFile(new URL('sw.js',site),'utf8');
@@ -61,15 +62,24 @@ test('200 HTML login or fallback pages cannot poison module caches or report a r
   let installation;harness.handlers.get('install')({waitUntil:value=>{installation=value;}});await assert.rejects(installation,/App resource unavailable/);
 });
 
-test('hosted and local DNS routing are distinct and weather uses credential-free fixed HTTPS endpoints',async()=>{
+test('hosted and local DNS routing are distinct and weather goes through the same-origin API',async()=>{
   const previousLocation=globalThis.location,previousDocument=globalThis.document,previousFetch=globalThis.fetch;
   try{
     globalThis.document={querySelector:()=>null};globalThis.location=new URL('http://my-computer.local:4173/');let localCalls=0;
     globalThis.fetch=async url=>{localCalls++;assert.equal(new URL(url).hostname,'my-computer.local');return Response.json({isHosted:false});};assert.equal((await requestAppJson('/api/device')).isHosted,false);assert.equal(localCalls,1);
     globalThis.location=new URL(HOSTED_URL);assert.equal((await requestAppJson('/api/device')).isHosted,true);assert.equal(localCalls,1);await assert.rejects(requestAppJson('https://evil.example/api/device'),/Недопустимый/);
-    let weatherCalls=0;globalThis.fetch=async(url,options)=>{weatherCalls++;assert.equal(new URL(url).origin,'https://geocoding-api.open-meteo.com');assert.equal(options.credentials,'omit');assert.equal(options.redirect,'error');assert.deepEqual(Object.keys(options.headers),['Accept']);return Response.json({results:[{id:1,name:'Кызылорда',country:'Казахстан',admin1:'Кызылординская область',latitude:44.85,longitude:65.5,timezone:'Asia/Qyzylorda'}]});};
-    const result=await requestAppJson('/api/cities?q=Кызылорда');assert.equal(result.cities[0].name,'Кызылорда');assert.equal(weatherCalls,1);
+    let apiCalls=0;globalThis.fetch=async(url,options)=>{apiCalls++;assert.equal(new URL(url).origin,new URL(HOSTED_URL).origin);assert.deepEqual(Object.keys(options.headers),['Accept']);return Response.json({cities:[{name:'Кызылорда'}]});};
+    const result=await requestAppJson('/api/cities?q=Кызылорда');assert.equal(result.cities[0].name,'Кызылорда');assert.equal(apiCalls,1);
   }finally{globalThis.location=previousLocation;globalThis.document=previousDocument;globalThis.fetch=previousFetch;}
+});
+
+test('weather service calls only the fixed credential-free Open-Meteo HTTPS endpoint',async()=>{
+  let calls=0;
+  const service=createWeatherService({fetcher:async(url,options)=>{
+    calls++;assert.equal(new URL(url).origin,'https://geocoding-api.open-meteo.com');assert.equal(options.credentials,'omit');assert.equal(options.redirect,'error');assert.deepEqual(Object.keys(options.headers),['Accept']);
+    return Response.json({results:[{id:1,name:'Кызылорда',country:'Казахстан',admin1:'Кызылординская область',latitude:44.85,longitude:65.5,timezone:'Asia/Qyzylorda'}]});
+  }});
+  const result=await service.searchCities('Кызылорда');assert.equal(result.cities[0].name,'Кызылорда');assert.equal(calls,1);
 });
 
 test('HTTPS static hosting retains the repository prefix in device links',async()=>{

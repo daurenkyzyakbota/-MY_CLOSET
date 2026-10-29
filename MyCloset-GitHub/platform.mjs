@@ -1,8 +1,6 @@
 import { QrCode } from './qrcode.mjs';
 
 export const HOSTED_URL = 'https://mycloset-bota-wardrobe.rockynewt20.chatgpt.site/';
-let weatherModule;
-let weatherService;
 let installPrompt = null;
 let initialized = false;
 let updateRegistration = null;
@@ -25,13 +23,6 @@ export async function requestAppJson(path) {
     const address = new URL('./',location.href).href;
     const hostedAddress = location.protocol==='https:'?address:HOSTED_URL;
     return {localUrl:address,phoneUrls:[hostedAddress],preferredPhoneUrl:hostedAddress,hostedUrl:hostedAddress,isHosted:true};
-  }
-  if (hosted && ['/api/cities','/api/weather'].includes(url.pathname)) {
-    weatherModule ??= import('./weather.mjs');
-    const module = await weatherModule;
-    weatherService ??= module.createWeatherService();
-    if (url.pathname === '/api/cities') return weatherService.searchCities(module.validateCityQuery(url.searchParams));
-    return weatherService.forecast(module.validateWeatherQuery(url.searchParams));
   }
   const response = await fetch(url,{headers:{Accept:'application/json'}});
   let data;

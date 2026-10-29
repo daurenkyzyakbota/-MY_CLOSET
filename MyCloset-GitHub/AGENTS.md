@@ -1,6 +1,6 @@
 # Working on MyCloset
 
-This repository contains the current buildless HTML/CSS/JavaScript website. There is no Next.js application, dependency installation or build step. `npm run dev` starts the optional Node.js static preview; `npm test` runs the built-in Node.js test suite.
+This repository contains a Next.js App Router application. `pnpm dev` starts the app, `pnpm build` creates a production build, and `pnpm test` runs the Node.js test suite.
 
 - Preserve the existing Russian UI and responsive layouts down to 320px.
 - Keep IndexedDB name `mycloset-local-v1` and validated migrations for backup versions 1–4. Never silently discard a user's photos, outfits, plans or shopping list.

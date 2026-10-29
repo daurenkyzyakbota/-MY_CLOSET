@@ -7,13 +7,13 @@ const metadata={subcategory:'',material:'',brand:'',notes:'',purchaseDate:''};
 const item=(id='shirt',changes={})=>({id,name:'Белая рубашка',category:'top',colors:['white'],seasons:['spring','autumn'],size:'M',style:'Классический',favorite:false,available:true,photo:'',createdAt:CREATED,warmth:'unknown',rainproof:'unknown',...metadata,...changes});
 const missing=()=>({id:'missing-shoes',name:'Лоферы',category:'shoes',colors:[],season:'autumn',style:'classic',size:'38',reason:'Для дополнения комплекта'});
 const state=()=>({...emptyState(),profile:{...emptyState().profile,name:'Амина',city:'Кызылорда'},items:[item()],outfits:[{id:'look',name:'Учёба',itemIds:['shirt'],favorite:true,createdAt:CREATED,occasion:'study',style:'classic',season:'autumn',description:'Описание',missingItems:[missing()]}],plans:[{id:'plan',date:'2026-10-27',slot:'day',outfitId:'look'}],shoppingList:[{id:'wish',name:'Лоферы',category:'shoes',colors:['black'],season:'autumn',style:'classic',size:'38',budget:18000,notes:'К образу',status:'planned',itemId:'',createdAt:CREATED}]});
-const previous=version=>{const s=state();s.version=version;for(const i of s.items)for(const key of Object.keys(metadata))delete i[key];if(version<3){delete s.shoppingList;for(const o of s.outfits)delete o.missingItems;}if(version===1){delete s.profile.location;for(const i of s.items){delete i.warmth;delete i.rainproof;}for(const o of s.outfits)for(const key of ['occasion','style','season','description'])delete o[key];}return s;};
+const previous=version=>{const s=state();s.version=version;for(const key of ['wearLog','capsules','trips'])delete s[key];for(const i of s.items)for(const key of Object.keys(metadata))delete i[key];if(version<3){delete s.shoppingList;for(const o of s.outfits)delete o.missingItems;}if(version===1){delete s.profile.location;for(const i of s.items){delete i.warmth;delete i.rainproof;}for(const o of s.outfits)for(const key of ['occasion','style','season','description'])delete o[key];}return s;};
 
-test('v1/v2/v3 migrate to v4 independently and preserve all old personal data',()=>{
-  assert.equal(FORMAT_VERSION,4);
+test('v1/v2/v3 migrate to v5 independently and preserve all old personal data',()=>{
+  assert.equal(FORMAT_VERSION,5);
   for(const version of [1,2,3]){
     const original=previous(version);original.items[0].photo='data:image/png;base64,iVBORw0KGgo=';const s=validateState(original);
-    assert.equal(s.version,4);assert.equal(original.version,version);assert.equal(s.profile.name,'Амина');assert.equal(s.profile.city,'Кызылорда');assert.equal(s.items[0].id,'shirt');assert.equal(s.items[0].photo,original.items[0].photo);assert.deepEqual(s.plans,original.plans);assert.equal(s.outfits[0].favorite,true);
+    assert.equal(s.version,5);assert.equal(original.version,version);assert.equal(s.profile.name,'Амина');assert.equal(s.profile.city,'Кызылорда');assert.equal(s.items[0].id,'shirt');assert.equal(s.items[0].photo,original.items[0].photo);assert.deepEqual(s.plans,original.plans);assert.equal(s.outfits[0].favorite,true);
     for(const key of Object.keys(metadata)){assert.equal(s.items[0][key],'');assert.ok(!Object.hasOwn(original.items[0],key));}
     if(version===3){assert.deepEqual(s.shoppingList,original.shoppingList);assert.deepEqual(s.outfits[0].missingItems,original.outfits[0].missingItems);}else{assert.deepEqual(s.shoppingList,[]);assert.deepEqual(s.outfits[0].missingItems,[]);}
     assert.deepEqual(validateState(s),s);
@@ -24,7 +24,7 @@ test('older schemas reject v4 metadata and corrupt v3 shopping instead of losing
   for(const version of [1,2,3])for(const key of Object.keys(metadata)){const s=previous(version);s.items[0][key]='';assert.throws(()=>validateState(s));}
   const corrupt=previous(3);corrupt.shoppingList[0].budget=-1;assert.throws(()=>validateState(corrupt));
   const missing=previous(3);delete missing.shoppingList;assert.throws(()=>validateState(missing));
-  const future=state();future.version=5;assert.throws(()=>validateState(future));
+  const future=state();future.version=6;assert.throws(()=>validateState(future));
 });
 
 test('all optional clothing details survive an exact independent backup round trip',()=>{
@@ -73,5 +73,5 @@ test('category counts include all six categories and exclude unknown categories 
 });
 
 test('demo preserves v3 shopping and missing-item records when adding examples',()=>{
-  const original=previous(3);const demo=demoState(original);assert.equal(demo.version,4);assert.equal(demo.items.length,7);assert.deepEqual(demo.shoppingList,original.shoppingList);assert.deepEqual(demo.outfits[0].missingItems,original.outfits[0].missingItems);assert.deepEqual(demo.plans,original.plans);assert.doesNotThrow(()=>validateState(demo));
+  const original=previous(3);const demo=demoState(original);assert.equal(demo.version,5);assert.equal(demo.items.length,7);assert.deepEqual(demo.shoppingList,original.shoppingList);assert.deepEqual(demo.outfits[0].missingItems,original.outfits[0].missingItems);assert.deepEqual(demo.plans,original.plans);assert.doesNotThrow(()=>validateState(demo));
 });

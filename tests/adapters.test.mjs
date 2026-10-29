@@ -14,7 +14,7 @@ test('controller is not ready before storage read and migrates without changing 
   const gate=deferred(),writes=[];const original={version:1,profile:{name:'Амина',city:'',styles:'',colors:[]},items:[],outfits:[],plans:[]};
   const controller=createClosetController({load:()=>gate.promise,save:async value=>writes.push(value)});
   const initialization=controller.initialize();assert.equal(controller.snapshot().ready,false);gate.resolve(original);await initialization;
-  assert.equal(controller.snapshot().ready,true);assert.equal(controller.snapshot().state.version,4);assert.equal(original.version,1);assert.equal(writes.length,0);
+  assert.equal(controller.snapshot().ready,true);assert.equal(controller.snapshot().state.version,5);assert.equal(original.version,1);assert.equal(writes.length,0);
 });
 
 test('queued writes use the latest state and publish only after persistence completes',async()=>{

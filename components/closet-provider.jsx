@@ -5,6 +5,8 @@ import { demoState, emptyState, localDate, MAX_BACKUP_FILE_BYTES, validateState 
 import { createClosetController, putItem, putOutfit, putPlan, putShopping } from '../lib/closet-state.js';
 import { createBrowserStorage, removeLegacyWorker } from '../lib/storage.js';
 import { fetchWeather } from '../lib/weather-client.js';
+import { markWorn as recordWear, removeWear as deleteWear, saveCapsule as putCapsule, removeCapsule as deleteCapsule, saveTrip as putTrip, removeTrip as deleteTrip, toggleTripPacked as changePacked } from '../lib/wardrobe-life.js';
+import { applyWeekPlans } from '../lib/week-plan-save.js';
 
 const ClosetContext = createContext(null);
 export function ClosetProvider({ children }) {
@@ -68,6 +70,14 @@ export function ClosetProvider({ children }) {
 
   const actions = useMemo(() => ({
     updateState, notify, loadWeather,
+    markWorn:draft => updateState(next => { recordWear(next,draft); },'Отметка носки сохранена'),
+    removeWear:id => updateState(next => { deleteWear(next,id); },'Отметка удалена'),
+    saveCapsule:draft => updateState(next => { putCapsule(next,draft); },'Капсула сохранена'),
+    removeCapsule:id => updateState(next => { deleteCapsule(next,id); },'Капсула удалена'),
+    saveTrip:draft => updateState(next => { putTrip(next,draft); },'Поездка сохранена'),
+    removeTrip:id => updateState(next => { deleteTrip(next,id); },'Поездка удалена'),
+    toggleTripPacked:(tripId,itemId) => updateState(next => { changePacked(next,tripId,itemId); }),
+    saveWeek:proposals => updateState(next => { applyWeekPlans(next,proposals); },'Образы добавлены в календарь'),
     saveItem:draft => updateState(next => { putItem(next,draft); },draft.id ? 'Вещь обновлена' : 'Вещь добавлена'),
     removeItem:id => updateState(next => { next.items = next.items.filter(item => item.id !== id); next.shoppingList = next.shoppingList.map(item => item.itemId === id ? {...item,itemId:''} : item); },'Вещь удалена. Состав сохранённых образов можно проверить в разделе «Образы».'),
     toggleItem:(id,key) => updateState(next => { if (!['favorite','available'].includes(key)) throw new Error('Недопустимое действие с вещью.'); const item = next.items.find(value => value.id === id); if (!item) throw new Error('Вещь не найдена.'); item[key] = !item[key]; }),
@@ -81,11 +91,12 @@ export function ClosetProvider({ children }) {
     purchaseShopping:id => updateState(next => { const shopping = next.shoppingList.find(item => item.id === id); if (!shopping) throw new Error('Покупка не найдена.'); shopping.status = 'purchased'; },'Покупка отмечена'),
     saveProfile:profile => updateState(next => { next.profile = {...next.profile,...profile,...(profile.city !== undefined && profile.city !== next.profile.city && profile.location === undefined ? {location:null} : {})}; },'Профиль сохранён'),
     loadDemo:() => updateState(next => demoState(next),'Учебные примеры добавлены'),
-    importBackup:async file => {
+    importBackup:async (file, { beforeApply } = {}) => {
       if (!file) throw new Error('Выберите резервную копию.');
       if (file.size > MAX_BACKUP_FILE_BYTES) throw new Error(`Файл слишком большой. Максимум — ${MAX_BACKUP_FILE_BYTES/1024/1024} МиБ.`);
       let parsed; try { parsed = JSON.parse(await file.text()); } catch { throw new Error('Не удалось прочитать JSON. Выберите резервную копию MyCloset.'); }
       const imported = validateState(parsed);
+      if (beforeApply) await beforeApply();
       return updateState(() => imported,'Резервная копия загружена');
     },
     exportBackup:() => {

@@ -15,7 +15,7 @@ const allWarnings = result => [...result.warnings,...result.outfits.flatMap(outf
 
 test('v1 migration preserves every personal record and returns an independent v2 copy', () => {
   const original=legacy(); const copy=validateState(original);
-  assert.equal(FORMAT_VERSION,4); assert.equal(copy.version,4); assert.equal(original.version,1);
+  assert.equal(FORMAT_VERSION,5); assert.equal(copy.version,5); assert.equal(original.version,1);
   assert.equal(copy.profile.name,original.profile.name); assert.equal(copy.profile.city,original.profile.city); assert.equal(copy.profile.location,null);
   assert.deepEqual(copy.items[0],{...original.items[0],warmth:'unknown',rainproof:'unknown',subcategory:'',material:'',brand:'',notes:'',purchaseDate:''});
   assert.deepEqual(copy.outfits[0],{...original.outfits[0],occasion:'everyday',style:'',season:'',description:'',missingItems:[]});
@@ -49,7 +49,7 @@ test('v2 profile location and outfit details survive exact backup round trip', (
 });
 
 test('legacy validation still rejects unknown schema, duplicate IDs, enum coercion and invalid dates', () => {
-  const mutations=[s=>s.version=5,s=>s.profile.colors=['invisible'],s=>s.items[0].category=['top'],s=>s.items[0].colors=[['white']],s=>s.items[0].id='../shirt',s=>s.items.push({...s.items[0]}),s=>s.items[0].favorite='false',s=>s.items[0].seasons=[],s=>s.outfits[0].itemIds=['shirt','shirt'],s=>s.outfits[0].itemIds=[],s=>s.plans[0].date='2026-02-29',s=>s.plans[0].outfitId='missing',s=>s.plans.push({...s.plans[0],id:'second'}),s=>s.items[0].createdAt='2026-02-30T12:00:00.000Z'];
+  const mutations=[s=>s.version=6,s=>s.profile.colors=['invisible'],s=>s.items[0].category=['top'],s=>s.items[0].colors=[['white']],s=>s.items[0].id='../shirt',s=>s.items.push({...s.items[0]}),s=>s.items[0].favorite='false',s=>s.items[0].seasons=[],s=>s.outfits[0].itemIds=['shirt','shirt'],s=>s.outfits[0].itemIds=[],s=>s.plans[0].date='2026-02-29',s=>s.plans[0].outfitId='missing',s=>s.plans.push({...s.plans[0],id:'second'}),s=>s.items[0].createdAt='2026-02-30T12:00:00.000Z'];
   for (const mutate of mutations) { const candidate=state(); mutate(candidate); assert.throws(()=>validateState(candidate)); }
   const candidate=state(); candidate.plans.push({...candidate.plans[0],id:'evening',slot:'evening'}); assert.doesNotThrow(()=>validateState(candidate));
 });
@@ -70,7 +70,7 @@ test('deleted garment references remain visible instead of silently altering sav
 });
 
 test('existing helpers and demo data stay compatible', () => {
-  const demo=demoState(); assert.equal(demo.version,4); assert.equal(demo.items.length,6); assert.equal(demo.outfits.length,1); assert.doesNotThrow(()=>validateState(demo));
+  const demo=demoState(); assert.equal(demo.version,5); assert.equal(demo.items.length,6); assert.equal(demo.outfits.length,1); assert.doesNotThrow(()=>validateState(demo));
   const withUser=demoState(state()); assert.equal(withUser.items[0].id,'shirt'); assert.equal(withUser.plans.length,1); assert.equal(withUser.profile.name,'Амина');
   assert.deepEqual(filterItems([item('yes','top',{favorite:true}),item('no','top',{available:false})],{query:'БЕЛАЯ',favorites:true,availability:'available'}).map(x=>x.id),['yes']);
   assert.equal(suggestItems(wardrobe(),'summer').length,3); assert.deepEqual(suggestItems(wardrobe().filter(x=>x.category!=='shoes')),[]);

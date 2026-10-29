@@ -1,10 +1,13 @@
 'use client';
 
+import { AppButton } from './app-button.jsx';
+
 import {useEffect, useRef, useState} from 'react';
 import {CATEGORIES, COLORS, SEASONS, SUBCATEGORIES, WARMTH_OPTIONS, RAINPROOF_OPTIONS} from '../lib/model.js';
 import {compressPhoto} from '../lib/photos.js';
 import {useCloset} from './closet-provider.jsx';
 import {ConfirmDialog, Field, Icon, Modal} from './ui.jsx';
+import PhotoEditor from './photo-editor.jsx';
 
 const blankItem = {name:'',category:'top',subcategory:'',colors:[],seasons:[],size:'',style:'',brand:'',material:'',notes:'',purchaseDate:'',warmth:'unknown',rainproof:'unknown',photo:'',available:true,favorite:false};
 
@@ -15,6 +18,7 @@ export default function ItemForm({item, onClose}) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [error, setError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [photoEditing, setPhotoEditing] = useState(false);
   const photoRequest = useRef(0);
   useEffect(() => () => {photoRequest.current += 1;}, []);
   const set = (key, value) => setDraft(current => ({...current,[key]:value}));
@@ -45,6 +49,7 @@ export default function ItemForm({item, onClose}) {
   }
 
   if (deleting) return <ConfirmDialog title="Удалить вещь?" description={`«${draft.name}» будет удалена из гардероба. Сохранённые образы останутся, но их состав нужно будет проверить.`} onClose={() => setDeleting(false)} onConfirm={async () => { await removeItem(item.id); onClose(); }}/>;
+  if (photoEditing) return <PhotoEditor photo={draft.photo} onClose={() => setPhotoEditing(false)} onApply={photo => { set('photo', photo); setPhotoEditing(false); }}/>;
   return <Modal title={item?.id ? 'Изменить вещь' : 'Новая вещь'} description="Расскажите немного о вещи. Поля со звёздочкой обязательны." onClose={saving ? () => {} : onClose}>
     <form id="item-form" onSubmit={submit}>
       <fieldset disabled={saving} className="form-fieldset">
@@ -54,7 +59,7 @@ export default function ItemForm({item, onClose}) {
             <Field label={<>Фотография <span className="optional">необязательно</span></>}><input type="file" name="photo" accept="image/jpeg,image/png,image/webp" onChange={selectPhoto} disabled={photoBusy} /></Field>
             <p className="field-hint">JPEG, PNG или WebP, до 12 МБ. Мы уменьшим фото для бережного хранения.</p>
             {photoBusy && <p className="field-hint" role="status">Готовим фотографию…</p>}
-            {draft.photo && <button type="button" className="button button-ghost" disabled={photoBusy} onClick={() => set('photo','')}>Удалить фотографию</button>}
+            {draft.photo && <div className="photo-upload-actions"><AppButton type="button" className="button button-secondary" disabled={photoBusy} onClick={() => setPhotoEditing(true)}><Icon name="edit"/>Обработать фото</AppButton><AppButton type="button" className="button button-ghost" disabled={photoBusy} onClick={() => set('photo','')}>Удалить фотографию</AppButton></div>}
           </div>
         </div>
         <div className="form-grid">
@@ -78,10 +83,10 @@ export default function ItemForm({item, onClose}) {
         </div><p className="field-hint">Если свойства неизвестны, оставьте «Не указано». Стилист предупредит об этом.</p></details>
         <div className="checkbox-group form-section"><label className="checkbox-row"><input type="checkbox" name="available" checked={draft.available} onChange={event => set('available',event.target.checked)} />Готова к выходу</label><label className="checkbox-row"><input type="checkbox" name="favorite" checked={draft.favorite} onChange={event => set('favorite',event.target.checked)} />В избранном</label></div>
         <p className="field-hint">Снимите «Готова к выходу», если вещь в стирке или временно недоступна.</p>
-        {item?.id && <div className="danger-zone"><button type="button" className="button button-danger" onClick={() => setDeleting(true)}><Icon name="trash"/>Удалить вещь</button></div>}
+        {item?.id && <div className="danger-zone"><AppButton type="button" className="button button-danger" onClick={() => setDeleting(true)}><Icon name="trash"/>Удалить вещь</AppButton></div>}
       </fieldset>
       {error && <p className="notice notice-error form-error" role="alert">{error}</p>}
-      <div className="form-actions"><button type="button" className="button button-secondary" disabled={saving} onClick={onClose}>Отмена</button><button className="button button-primary" type="submit" disabled={saving || photoBusy}><Icon name="check" />{saving ? 'Сохраняем…' : 'Сохранить вещь'}</button></div>
+      <div className="form-actions"><AppButton type="button" className="button button-secondary" disabled={saving} onClick={onClose}>Отмена</AppButton><AppButton className="button button-primary" type="submit" disabled={saving || photoBusy}><Icon name="check" />{saving ? 'Сохраняем…' : 'Сохранить вещь'}</AppButton></div>
     </form>
   </Modal>;
 }

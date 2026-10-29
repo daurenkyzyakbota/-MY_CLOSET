@@ -10,12 +10,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # Working on MyCloset
 
-This is a Next.js App Router project, organized like the user's ServiceDesk project. Use JavaScript/JSX, React components and ordinary CSS. Runtime dependencies are next, react and react-dom.
+This is a Next.js App Router project, organized like the user's ServiceDesk project. Use JavaScript/JSX and React components. The user has explicitly requested Material UI and Bootstrap; use MUI controls with the App Router SSR cache provider and Bootstrap grid/utilities while retaining the original design.
 
 - Preserve Russian UI, accessible forms, keyboard interactions and responsive layouts down to 320px.
 - Preserve the restored original visual design and screen structure: dark sidebar, original dashboard blocks, six-item mobile navigation and profile within settings. Do not redesign these during technical rewrites unless the user asks.
-- Implement pages in app/(closet), reusable UI in components, domain code in lib and assets in public/assets. Do not reintroduce duplicated projects, legacy HTML shells, public runtime modules, script injection, MUI or Bootstrap.
-- Preserve IndexedDB name mycloset-local-v1, store data, key state and validated backup migrations 1–4. Never silently discard photos, outfits, plans or shopping data.
+- Preserve light, dark and system appearance modes, the pre-paint theme initializer, the header toggle and settings picker. Keep real photos, garment color swatches and QR codes unchanged by theme filters. Appearance is a browser preference outside wardrobe backups.
+- Implement pages in app/(closet), reusable UI in components, domain code in lib and assets in public/assets. Do not reintroduce duplicated projects, legacy HTML shells, public runtime modules or script injection. Keep MUI dialogs and controls under the shared theme; use Bootstrap grid and utilities without its global Reboot or imperative DOM plugins.
+- Preserve IndexedDB name mycloset-local-v1, store data, key state, format 5 and validated migrations from backups 1–4. Never silently discard photos, outfits, plans, purchases, wear history, capsules or trips.
+- Keep this site locally hosted until the user asks to publish it. Cloud accounts and sync are optional; never upload a local wardrobe merely because a user signs in.
+- Cloud resource ownership must come from the verified server session. Preserve account-change guards, optimistic revision conflicts, private/no-store auth responses and lossless JSON storage. Local backup import and browser reset disconnect sync before applying local changes and preserve the cloud copy.
+- Keep Secure auth cookies. Localhost login is supported; a phone using a LAN HTTP address needs an HTTPS origin to sign in. Do not pretend that a local link is public hosting.
 - Serialize writes and publish state only after successful persistence. Preserve explicit memory-mode warnings and confirmation for destructive actions and backup replacement.
 - Prefer owned available items. Explain missing pieces, laundry, unknown weather and rule-based recommendations honestly. Do not fabricate stock, prices or AI photo analysis.
 - Weather calls use only the fixed Open-Meteo HTTPS endpoints via Next.js Route Handlers. Keep manual fallback and date checks.

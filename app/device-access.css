@@ -1,0 +1,40 @@
+.device-access-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 22px 0; padding: 5px; border: 1px solid #eadde3; border-radius: 15px; background: #faf5f7; }
+.device-access-option.MuiButton-root { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; min-height: 77px; padding: 10px 5px; border: 1px solid transparent; border-radius: 10px; color: #8c7581; font-size: 11px; line-height: 1.5; }
+.device-access-option.MuiButton-root:hover { background: #f3e8ed; }
+.device-access-option.MuiButton-root.is-active { border-color: #e7c9d7; background: #fff; color: #a15075; box-shadow: 0 3px 10px #5a354b09; }
+.device-access-option .icon { width: 20px; height: 20px; }
+.device-access-content { min-width: 0; }
+.device-access-content h3 { margin: 19px 0 11px; color: #68525e; font-size: 19px; line-height: 1.45; letter-spacing: -.025em; }
+.device-access-content p { color: var(--muted); font-size: 13px; line-height: 1.9; }
+.device-access-status { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #e9dce4; border-radius: 10px; background: #faf5f8; color: #946b83; font-size: 11px; line-height: 1.6; }
+.device-access-status .icon { width: 17px; height: 17px; }
+.device-access-status.is-hosted { border-color: #dfe6d9; background: #f3f6ef; color: #728168; }
+.device-access-content .device-qr { margin-top: 24px; margin-bottom: 22px; }
+.device-access-content .device-actions > .button { flex: 1; }
+.device-manual-copy { margin-top: 17px; padding: 14px; border: 1px solid #e9dce4; border-radius: 12px; background: #fcf8fa; }
+.device-manual-copy label { display: block; margin-bottom: 9px; color: #796371; font-size: 12px; }
+.device-manual-copy input { width: 100%; min-width: 0; font-size: 13px; }
+.device-manual-copy .device-note { margin: 8px 0 0; font-size: 11px; }
+.device-address-options { display: grid; gap: 5px; margin-top: 12px; }
+.device-address-options > .button { justify-content: flex-start; width: 100%; min-width: 0; padding: 10px; border: 1px solid transparent; text-align: left; }
+.device-address-options > .button > span { min-width: 0; overflow-wrap: anywhere; }
+.device-address-options > .button.is-selected { border-color: #e5cdd9; background: #f8eff4; }
+.device-refresh.MuiButton-root { margin-top: 15px; }
+.device-troubleshooting { margin-top: 20px; padding-top: 17px; border-top: 1px solid #eadde3; }
+.device-troubleshooting > summary { min-height: 38px; cursor: pointer; color: #9d6585; font-size: 13px; font-weight: 550; }
+.device-troubleshooting .install-guide { margin-top: 8px; }
+.device-guide-icon { display: grid; place-items: center; width: 54px; height: 54px; margin: 26px 0 18px; border: 1px solid #ebdbe4; border-radius: 16px; background: #faf2f7; color: #b0789a; }
+.device-guide-icon .icon { width: 26px; height: 26px; }
+.device-guide-note { display: flex; align-items: flex-start; gap: 10px; margin: 23px 0 0; padding: 15px; border: 1px solid #e8dce3; border-radius: 12px; background: #fbf7f9; }
+.device-guide-note > .icon { width: 18px; height: 18px; margin-top: 3px; color: #b5809e; }
+.device-access-content .device-commands { max-width: 100%; margin: 13px 0 19px; padding: 17px 19px; border: 1px solid #e4d1dc; border-radius: 12px; background: #3b303a; color: #f3e3ed; font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 2; overflow-x: auto; }
+.device-transfer-error { margin: 17px 0 0; }
+@media (max-width: 600px) {
+  .device-access-switch { gap: 4px; margin: 20px 0; padding: 4px; }
+  .device-access-option.MuiButton-root { min-height: 79px; padding: 9px 3px; font-size: 11px; }
+  .device-access-content h3 { font-size: 19px; }
+  .device-access-content p { font-size: 13px; }
+  .device-access-status { padding: 10px; font-size: 11px; }
+  .device-manual-copy input { font-size: 16px; }
+  .device-address-options > .button { font-size: 11px; }
+}

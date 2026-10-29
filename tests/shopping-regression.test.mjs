@@ -10,17 +10,17 @@ const missing=(changes={})=>({id:'missing',name:'Прямые брюки',catego
 const outfit=(changes={})=>({id:'look',name:'Мой образ',itemIds:['top'],favorite:true,createdAt:CREATED,occasion:'study',style:'minimal',season:'autumn',description:'Описание',missingItems:[],...changes});
 const state=()=>({...emptyState(),items:[item()],outfits:[outfit()],plans:[{id:'plan',date:'2026-10-23',slot:'day',outfitId:'look'}]});
 const wardrobe=()=>[item('top','top'),item('bottom','bottom'),item('shoes','shoes')];
-const v2=()=>{const s=state();s.version=2;for(const i of s.items)for(const key of ['subcategory','material','brand','notes','purchaseDate'])delete i[key];delete s.shoppingList;delete s.outfits[0].missingItems;return s;};
+const v2=()=>{const s=state();s.version=2;for(const key of ['wearLog','capsules','trips'])delete s[key];for(const i of s.items)for(const key of ['subcategory','material','brand','notes','purchaseDate'])delete i[key];delete s.shoppingList;delete s.outfits[0].missingItems;return s;};
 const v1=()=>{const s=v2();s.version=1;delete s.profile.location;for(const i of s.items){delete i.warmth;delete i.rainproof;}for(const o of s.outfits)for(const key of ['occasion','style','season','description'])delete o[key];return s;};
 const warm={feelsLike:22,rainProbability:0,windSpeed:2};
 const cold={feelsLike:3,rainProbability:0,windSpeed:2};
 const message=r=>[...r.warnings,...r.outfits.flatMap(o=>o.warnings)].join(' ');
 
 test('strict v1 and v2 migrate independently to v3 without losing IDs, photos, favorites or plans',()=>{
-  assert.equal(FORMAT_VERSION,4);
+  assert.equal(FORMAT_VERSION,5);
   for(const original of [v1(),v2()]){
     original.items[0].photo='data:image/png;base64,iVBORw0KGgo=';
-    const copy=validateState(original);assert.equal(copy.version,4);assert.deepEqual(copy.shoppingList,[]);assert.deepEqual(copy.outfits[0].missingItems,[]);
+    const copy=validateState(original);assert.equal(copy.version,5);assert.deepEqual(copy.shoppingList,[]);assert.deepEqual(copy.outfits[0].missingItems,[]);
     assert.equal(copy.items[0].id,'top');assert.equal(copy.items[0].photo,original.items[0].photo);assert.equal(copy.outfits[0].favorite,true);assert.deepEqual(copy.plans,original.plans);
     assert.ok(!Object.hasOwn(original,'shoppingList'));assert.ok(!Object.hasOwn(original.outfits[0],'missingItems'));
     assert.deepEqual(validateState(copy),copy);
@@ -123,6 +123,6 @@ test('verified search links use fixed official hosts and encode hostile names as
 });
 
 test('existing demo data and all photo/date/duplicate validations still apply in v3',()=>{
-  const demo=demoState();assert.equal(demo.version,4);assert.equal(demo.items.length,6);assert.deepEqual(demo.shoppingList,[]);assert.doesNotThrow(()=>validateState(demo));
+  const demo=demoState();assert.equal(demo.version,5);assert.equal(demo.items.length,6);assert.deepEqual(demo.shoppingList,[]);assert.doesNotThrow(()=>validateState(demo));
   for(const mutate of [s=>s.items[0].photo='data:image/svg+xml;base64,PHN2Zz4=',s=>s.items[0].photo='https://example.com/a.png',s=>s.items.push({...s.items[0]}),s=>s.items[0].createdAt='2026-02-30T12:00:00.000Z',s=>s.plans[0].date='2026-02-29',s=>s.plans[0].outfitId='absent',s=>s.plans.push({...s.plans[0],id:'another'})]){const s=state();mutate(s);assert.throws(()=>validateState(s));}
 });

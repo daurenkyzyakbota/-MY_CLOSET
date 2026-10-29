@@ -1,0 +1,44 @@
+.account-layout { margin-top: 0; margin-bottom: 24px; }
+.account-card { height: 100%; margin-bottom: 0; min-width: 0; }
+.account-card h2 { margin: 0 0 16px; font-size: 21px; }
+.account-card p { line-height: 1.85; }
+.account-identity { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; min-width: 0; }
+.account-identity > div { min-width: 0; }
+.account-identity h2 { margin-bottom: 3px; overflow-wrap: anywhere; }
+.account-identity .eyebrow { margin-bottom: 6px; }
+.account-email { margin: 0; color: var(--muted); overflow-wrap: anywhere; }
+.account-avatar { display: inline-grid; flex-shrink: 0; place-items: center; width: 56px; height: 56px; border-radius: 17px; background: var(--rose-soft); color: var(--rose-deep); }
+.account-sync-status { display: flex; align-items: center; gap: 9px; min-height: 45px; margin-bottom: 14px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--appearance-inset); font-size: 13px; font-weight: 600; }
+.account-sync-status .icon { flex-shrink: 0; }
+.account-sync-status.is-ready { color: var(--green); }
+.account-sync-status.is-conflict, .account-sync-status.is-error { color: var(--rose-deep); }
+.account-actions, .account-connect-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin: 20px 0 14px; }
+.account-actions .app-button, .account-connect-actions .app-button { white-space: normal; text-align: center; }
+.account-copies { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+.account-copy { min-width: 0; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--appearance-inset); }
+.account-copy > .icon { margin-bottom: 12px; color: var(--rose-deep); }
+.account-copy h3 { margin: 0 0 10px; font-size: 15px; }
+.account-copy p { color: var(--muted); font-size: 13px; }
+.account-copy .app-button { max-width: 100%; white-space: normal; }
+.account-tabs { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 24px; }
+.account-auth-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.account-auth-links .app-button { white-space: normal; }
+.account-show-password { display: inline-flex; align-items: center; gap: 9px; margin-top: 14px; color: var(--muted); font-size: 13px; cursor: pointer; }
+.account-show-password input { width: 17px; height: 17px; accent-color: var(--rose-deep); }
+.account-intro > .account-avatar { margin-bottom: 20px; }
+.account-intro ul { margin: 20px 0; padding-left: 21px; color: var(--muted); line-height: 1.9; }
+.account-intro li + li { margin-top: 9px; }
+.account-confirm-summaries { margin: 18px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--appearance-inset); font-size: 13px; line-height: 1.8; }
+.account-confirm-summaries p:last-child { margin-bottom: 0; }
+.account-unavailable > .icon { margin-bottom: 15px; color: var(--rose-deep); }
+.account-https-notice { margin-bottom: 24px; border-color: var(--appearance-line); background: var(--appearance-inset); }
+.account-https-notice > .icon { margin-bottom: 12px; color: var(--rose-deep); }
+.account-https-notice h2 { margin: 0 0 12px; font-size: 20px; }
+@media (max-width: 600px) {
+  .account-copies { grid-template-columns: 1fr; }
+  .account-copy { padding: 15px; }
+  .account-actions, .account-connect-actions { align-items: stretch; }
+  .account-connect-actions > .app-button { width: 100%; }
+  .account-auth-links { flex-direction: column; align-items: flex-start; }
+  .account-email { font-size: 13px; }
+}

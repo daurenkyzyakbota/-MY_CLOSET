@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { Children, isValidElement, useEffect, useId, useState } from 'react';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import OutlinedInput from '@mui/material/OutlinedInput';
+import Select from '@mui/material/Select';
+import {AppButton} from './app-button.jsx';
 import { COLORS } from '@/lib/model.js';
 
 const icons = {
@@ -25,6 +31,10 @@ const icons = {
   trash: <><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></>,
   copy: <><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 4V3H3v13h1"/></>,
   sun: <><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></>,
+  moon: <path d="M20.8 13.3A9 9 0 0 1 10.7 3.2 9 9 0 1 0 20.8 13.3Z"/>,
+  monitor: <><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></>,
+  briefcase: <><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V3h8v4M3 12a25 25 0 0 0 18 0M10 13h4m-2-1v3"/></>,
+  chart: <><path d="M4 3v18h17M8 16v-5m5 5V6m5 10v-8"/></>,
   cloud: <path d="M6 18a4 4 0 0 1-1-7.9A7 7 0 0 1 18.5 8 5 5 0 0 1 18 18Z"/>,
   rain: <><path d="M6 16a4 4 0 0 1-1-7.9A7 7 0 0 1 18.5 6 5 5 0 0 1 18 16Z"/><path d="m8 19-1 2m6-2-1 2m6-2-1 2"/></>,
   wind: <><path d="M3 8h12a3 3 0 1 0-3-3M3 12h16a3 3 0 1 1-3 3M3 16h5a3 3 0 1 1-3 3"/></>,
@@ -55,47 +65,54 @@ export function EmptyState({ icon = 'hanger', title, description, children }) {
   return <div className="empty-state"><div className="empty-icon"><Icon name={icon} size={34}/></div><h3>{title}</h3>{description && <p>{description}</p>}{children}</div>;
 }
 
-export function Loading() { return <div className="loading-state" role="status"><span className="spinner"/><span>Открываем ваш гардероб…</span></div>; }
+export function Loading() { return <div className="loading-state" role="status"><CircularProgress className="loading-progress" size={22} thickness={3} aria-hidden="true"/><span>Открываем ваш гардероб…</span></div>; }
 
-export function Field({ label, children, className = '', hint, error, ...props }) {
-  return <label className={`field ${className}`} {...props}>{label}{children}{hint && <span className="field-hint">{hint}</span>}{error && <span className="form-error">{error}</span>}</label>;
+function fieldControl(child,error,descriptionIds){
+  if(!isValidElement(child)||typeof child.type!=='string')return child;
+  const tag=child.type;
+  if(!['input','select','textarea'].includes(tag))return child;
+  if(tag==='input'&&['file','checkbox','radio','hidden','button','submit','reset','image','color','range'].includes(child.props.type))return child;
+  const {children,className='',style,ref,id,name,type,autoFocus,autoComplete,defaultValue,value,onChange,onBlur,onFocus,disabled,required,readOnly,placeholder,rows,...nativeProps}=child.props;
+  const describedBy=[nativeProps['aria-describedby'],...descriptionIds].filter(Boolean).join(' ')||undefined;
+  const attributes={...nativeProps,...(className?{className}:{}),...(style?{style}:{}),...(describedBy?{'aria-describedby':describedBy}:{}),...(error?{'aria-invalid':true}:{})};
+  const common={id,name,autoFocus,autoComplete,defaultValue,value,onChange,onBlur,onFocus,disabled,required,readOnly,fullWidth:true,error:!!error,inputRef:ref,notched:false};
+  if(tag==='select')return <Select {...common} key={child.key} native variant="outlined" className="mui-field-control mui-native-select" inputProps={attributes}>{children}</Select>;
+  return <OutlinedInput {...common} key={child.key} type={tag==='textarea'?undefined:type||'text'} placeholder={placeholder} multiline={tag==='textarea'} rows={tag==='textarea'?rows:undefined} className={`mui-field-control${tag==='textarea'?' mui-textarea-control':''}`} slotProps={{input:attributes}}/>;
 }
 
-export function Modal({ title, description, onClose, children }) {
-  const dialogRef = useRef(null);
-  const titleId = useId();
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  useEffect(() => {
-    const previous = document.activeElement;
-    const node = dialogRef.current;
-    node?.showModal();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      node?.close();
-      document.body.style.overflow = previousOverflow;
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
-      else document.getElementById('main')?.focus({ preventScroll: true });
-    };
-  }, []);
-  function outside(event) {
-    if (event.target !== dialogRef.current) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeRef.current?.();
-  }
-  return <dialog ref={dialogRef} id="modal" className="modal" aria-labelledby={titleId} onCancel={event => { event.preventDefault(); closeRef.current?.(); }} onClick={outside}><div className="modal-form"><div className="modal-header"><div><p className="eyebrow">MYCLOSET</p><h2 id={titleId}>{title}</h2>{description && <p className="subtitle">{description}</p>}</div><button type="button" className="icon-button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></div><div className="modal-body">{children}</div></div></dialog>;
+export function Field({label,children,className='',hint,error,...props}){
+  const fieldId=useId();
+  const hintId=`${fieldId}-hint`;
+  const errorId=`${fieldId}-error`;
+  const descriptions=[hint?hintId:'',error?errorId:''].filter(Boolean);
+  return <label className={`field ${className}`} {...props}>{label}{Children.map(children,child=>fieldControl(child,error,descriptions))}{hint&&<span id={hintId} className="field-hint">{hint}</span>}{error&&<span id={errorId} className="form-error">{error}</span>}</label>;
 }
 
-export function ConfirmDialog({ title = 'Удалить?', description, onConfirm, onClose }) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  async function confirm() {
-    if (saving) return;
-    setSaving(true); setError('');
-    try { await onConfirm(); onClose(); } catch (err) { setError(err.message || 'Не удалось выполнить действие.'); setSaving(false); }
+export function Modal({title,description,onClose,children}){
+  const titleId=useId();
+  const descriptionId=useId();
+  const [previousFocus]=useState(()=>typeof document==='undefined'?null:document.activeElement);
+  useEffect(()=>()=>{
+    if(typeof window==='undefined'||previousFocus?.isConnected)return;
+    window.requestAnimationFrame(()=>{
+      if(document.querySelector('[role="dialog"][aria-modal="true"]'))return;
+      const focused=document.activeElement;
+      if(focused&&focused!==document.body&&focused!==document.documentElement&&focused.isConnected)return;
+      document.getElementById('main')?.focus({preventScroll:true});
+    });
+  },[previousFocus]);
+  return <Dialog open className="mycloset-dialog" maxWidth={false} scroll="paper" transitionDuration={0} aria-labelledby={titleId} aria-describedby={description?descriptionId:undefined} onClose={()=>onClose?.()} slotProps={{paper:{id:'modal',className:'mycloset-dialog-paper'},backdrop:{className:'mycloset-dialog-backdrop'}}}><div className="modal-form"><div className="modal-header"><div><p className="eyebrow">MYCLOSET</p><h2 id={titleId}>{title}</h2>{description&&<p id={descriptionId} className="subtitle">{description}</p>}</div><AppButton type="button" className="icon-button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></AppButton></div><div className="modal-body">{children}</div></div></Dialog>;
+}
+
+export function ConfirmDialog({title='Удалить?',description,onConfirm,onClose}){
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+  async function confirm(){
+    if(saving)return;
+    setSaving(true);setError('');
+    try{await onConfirm();onClose();}catch(cause){setError(cause.message||'Не удалось выполнить действие.');setSaving(false);}
   }
-  return <Modal title={title} onClose={() => { if (!saving) onClose(); }}><p className="confirm-copy">{description}</p>{error && <p className="form-error" role="alert">{error}</p>}<div className="form-actions"><button className="button button-secondary" onClick={onClose} disabled={saving} autoFocus>Отмена</button><button className="button button-danger" onClick={confirm} disabled={saving}>{saving ? 'Сохраняем…' : 'Подтвердить'}</button></div></Modal>;
+  return <Modal title={title} onClose={()=>{if(!saving)onClose();}}><p className="confirm-copy">{description}</p>{error&&<Alert className="form-error mui-form-alert" severity="error" variant="outlined" role="alert">{error}</Alert>}<div className="form-actions"><AppButton className="button button-secondary" onClick={onClose} disabled={saving} autoFocus>Отмена</AppButton><AppButton className="button button-danger" onClick={confirm} disabled={saving}>{saving?'Сохраняем…':'Подтвердить'}</AppButton></div></Modal>;
 }
 
 export function ItemArt({ item = {} }) {

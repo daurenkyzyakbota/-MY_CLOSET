@@ -1,2 +1,4 @@
 import { redirect } from 'next/navigation';
-export default function Profile() { redirect('/settings'); }
+export default function Profile() {
+  redirect('/settings');
+}

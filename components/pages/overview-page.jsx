@@ -1,0 +1,631 @@
+'use client';
+
+import { AppButton } from '@/components/ui/app-button.jsx';
+
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCloset } from '@/components/providers/closet-provider.jsx';
+import { SLOTS, localDate } from '@/lib/data/model.js';
+import { recommendOutfits } from '@/lib/styling/stylist.js';
+import { searchCities } from '@/lib/weather/weather-client.js';
+import ItemCard from '@/components/cards/item-card.jsx';
+import ItemForm from '@/components/forms/item-form.jsx';
+import OutfitForm from '@/components/forms/outfit-form.jsx';
+import { ConfirmDialog, Icon, ItemArt, Modal } from '@/components/ui/ui.jsx';
+
+const dateLabel = (value) =>
+  new Date(`${value}T12:00:00`).toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+const degrees = (value) => (Number.isFinite(value) ? `${Math.round(value)}°` : '—');
+function weatherDescription(code) {
+  if (code === null || code === undefined) return 'Погода';
+  if (code === 0) return 'Ясно';
+  if (code <= 3) return 'Облачно';
+  if (code <= 48) return 'Туман';
+  if (code <= 67) return 'Дождь';
+  if (code <= 77) return 'Снег';
+  if (code <= 82) return 'Ливень';
+  if (code <= 86) return 'Снегопад';
+  return 'Гроза';
+}
+const weatherGlyph = (code) =>
+  code === 0 ? 'sun' : code !== null && code >= 51 ? 'rain' : 'cloud';
+
+function CityDialog({ onClose }) {
+  const { state, saveProfile } = useCloset();
+  const [query, setQuery] = useState(state.profile.city);
+  const [cities, setCities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const request = useRef(0);
+  useEffect(
+    () => () => {
+      request.current++;
+    },
+    [],
+  );
+  async function search(event) {
+    event.preventDefault();
+    if (loading) return;
+    const value = query.trim();
+    if (value.length < 2) {
+      setError('Введите хотя бы две буквы.');
+      return;
+    }
+    const id = ++request.current;
+    setLoading(true);
+    setError('');
+    setCities([]);
+    try {
+      const data = await searchCities(value);
+      if (request.current !== id) return;
+      setCities(data.cities);
+      if (!data.cities.length) setError('Город не найден. Попробуйте другое написание.');
+    } catch (cause) {
+      if (request.current === id) setError(cause.message || 'Не удалось найти город.');
+    } finally {
+      if (request.current === id) setLoading(false);
+    }
+  }
+  async function choose(city) {
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      await saveProfile({ city: city.name, location: city });
+      onClose();
+    } catch (cause) {
+      setError(cause.message || 'Не удалось сохранить город.');
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <Modal
+      title="Выберите город"
+      description="Найдите свой город и проверьте регион в результатах поиска."
+      onClose={saving ? () => {} : onClose}
+    >
+      <form id="city-form" onSubmit={search}>
+        <div className="city-picker">
+          <label className="field">
+            Город
+            <input
+              type="search"
+              name="query"
+              minLength={2}
+              maxLength={80}
+              required
+              autoFocus
+              placeholder="Например, Кызылорда"
+              value={query}
+              disabled={saving}
+              onChange={(event) => {
+                request.current++;
+                setLoading(false);
+                setCities([]);
+                setQuery(event.target.value);
+              }}
+            />
+          </label>
+          <p className="footnote">
+            Геолокация не нужна. Для поиска города и погоды используется Open-Meteo.
+          </p>
+          <div className="city-results" aria-live="polite">
+            {loading && (
+              <p className="weather-status" role="status">
+                Ищем город…
+              </p>
+            )}
+            {cities.map((city) => (
+              <AppButton
+                type="button"
+                className="city-result"
+                key={city.id}
+                disabled={saving}
+                onClick={() => choose(city)}
+              >
+                <span>
+                  <Icon name="pin" />
+                  <strong>{city.name}</strong>
+                </span>
+                <span className="city-result-meta">
+                  {[city.admin1, city.country].filter(Boolean).join(', ')}
+                </span>
+              </AppButton>
+            ))}
+          </div>
+        </div>
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        <div className="form-actions">
+          <AppButton
+            type="button"
+            className="btn btn-secondary"
+            onClick={onClose}
+            disabled={saving}
+          >
+            Отмена
+          </AppButton>
+          <AppButton type="submit" className="btn btn-primary" disabled={loading || saving}>
+            {loading ? 'Ищем…' : 'Найти город'}
+          </AppButton>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function WeatherCard({ onChooseCity }) {
+  const { state, weather, weatherLoading, weatherError, loadWeather } = useCloset();
+  const location = state.profile.location;
+  useEffect(() => {
+    if (location) void loadWeather();
+  }, [location?.latitude, location?.longitude, loadWeather]);
+  const date = localDate();
+  if (!location)
+    return (
+      <section className="settings-card weather-card" aria-label="Прогноз погоды">
+        <div className="weather-placeholder">
+          <span className="weather-symbol">
+            <Icon name="cloud" />
+          </span>
+          <div>
+            <p className="eyebrow">ПОГОДА И ВАШ ГАРДЕРОБ</p>
+            <h2>У каждого дня свой образ</h2>
+            <p>Выберите город, чтобы учитывать температуру, дождь и ветер при подборе.</p>
+            <AppButton className="btn btn-secondary" type="button" onClick={onChooseCity}>
+              <Icon name="pin" />
+              Выбрать город
+            </AppButton>
+          </div>
+        </div>
+      </section>
+    );
+  const day = weather?.days?.find((value) => value.date === date);
+  const current = weather?.current?.dateTime?.slice(0, 10) === date ? weather.current : null;
+  const headline = current
+    ? degrees(current.temperature)
+    : day
+      ? `${degrees(day.tempMin)} / ${degrees(day.tempMax)}`
+      : '—';
+  const rain = day?.rainProbability,
+    wind = current?.windSpeed ?? day?.windSpeed,
+    code = current?.weatherCode ?? day?.weatherCode;
+  const updated = weather?.updatedAt
+    ? new Date(weather.updatedAt).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : '';
+  return (
+    <section className="settings-card weather-card" aria-label="Прогноз погоды">
+      <div className="weather-card-header">
+        <div>
+          <p className="eyebrow">{dateLabel(date)}</p>
+          <h2 className="weather-location">
+            <Icon name="pin" />
+            {location.name}
+          </h2>
+        </div>
+        <AppButton className="btn btn-ghost" type="button" onClick={onChooseCity}>
+          Сменить город
+        </AppButton>
+      </div>
+      {weatherError && (
+        <p className="weather-error" role="alert">
+          {weatherError} В стилисте можно указать погоду вручную.
+        </p>
+      )}
+      {weatherLoading && (
+        <p className="weather-status" role="status">
+          Загружаем прогноз…
+        </p>
+      )}
+      {weather && !day && !current && (
+        <p className="weather-status">
+          На выбранную дату прогноза пока нет. Укажите погоду вручную или выберите другую дату.
+        </p>
+      )}
+      <div className="weather-current">
+        <span className="weather-symbol">
+          <Icon name={weatherGlyph(code)} />
+        </span>
+        <strong className="weather-temperature">{headline}</strong>
+        <div>
+          <span>{day || current ? weatherDescription(code) : 'Прогноз ещё не загружен'}</span>
+          {current ? (
+            <p className="item-meta">Сейчас · ощущается как {degrees(current.feelsLike)}</p>
+          ) : day ? (
+            <p className="item-meta">
+              Ощущается {degrees(day.feelsMin)} / {degrees(day.feelsMax)}
+            </p>
+          ) : null}
+        </div>
+      </div>
+      {(day || current) && (
+        <div className="weather-facts">
+          <span>
+            <Icon name="rain" />
+            Вероятность осадков: {Number.isFinite(rain) ? `${rain}%` : 'нет данных'}
+          </span>
+          <span>
+            <Icon name="wind" />
+            Ветер: {Number.isFinite(wind) ? `${Math.round(wind * 10) / 10} м/с` : 'нет данных'}
+          </span>
+        </div>
+      )}
+      <div className="weather-meta">
+        {weather ? (
+          <span>
+            Источник:{' '}
+            <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
+              Open-Meteo
+            </a>
+            {updated ? ` · обновлено ${updated}` : ''}
+          </span>
+        ) : (
+          <span>Прогноз появится при подключении к интернету.</span>
+        )}
+        <AppButton
+          className="btn btn-ghost"
+          type="button"
+          disabled={weatherLoading}
+          onClick={() => loadWeather(date, true)}
+        >
+          <Icon name="refresh" />
+          Обновить
+        </AppButton>
+      </div>
+    </section>
+  );
+}
+
+export default function OverviewPage() {
+  const { state, loadDemo } = useCloset();
+  const [editing, setEditing] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [idea, setIdea] = useState(null);
+  const [demo, setDemo] = useState(false);
+  const [city, setCity] = useState(false);
+  const today = localDate();
+  const favorites =
+    state.items.filter((item) => item.favorite).length +
+    state.outfits.filter((outfit) => outfit.favorite).length;
+  const upcoming = state.plans
+    .filter((plan) => plan.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.slot.localeCompare(b.slot))[0];
+  const daily = useMemo(
+    () =>
+      recommendOutfits(state.items, {
+        occasion: 'everyday',
+        style: 'any',
+        season: '',
+        weather: null,
+        limit: 1,
+        variant: Number(today.slice(-2)) + Number(today.slice(5, 7)),
+      }).outfits[0] || null,
+    [state.items, today],
+  );
+  const dailyItems =
+    daily?.itemIds.map((id) => state.items.find((item) => item.id === id)).filter(Boolean) || [];
+  const dayLabel = new Date(`${today}T12:00:00`).toLocaleDateString('ru-RU', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  function saveDaily() {
+    if (daily)
+      setIdea({
+        name: `Идея на ${dateLabel(today)}`,
+        itemIds: daily.itemIds,
+        occasion: 'everyday',
+        style: '',
+        season: '',
+        description: daily.description,
+        missingItems: [],
+      });
+  }
+  return (
+    <>
+      <div className="dashboard-intro">
+        <div>
+          <p className="eyebrow">ВАШЕ ПРОСТРАНСТВО СТИЛЯ</p>
+          <h2>
+            {state.profile.name
+              ? `Здравствуйте, ${state.profile.name}`
+              : 'Добро пожаловать в MyCloset'}
+          </h2>
+        </div>
+        <span className="today-date">
+          <Icon name="calendar" />
+          {dayLabel}
+        </span>
+      </div>
+      <section className="hero">
+        <div className="hero-content">
+          <p className="eyebrow">ГАРДЕРОБ, КОТОРЫЙ ВДОХНОВЛЯЕТ</p>
+          <h1>
+            Ваш стиль
+            <br />
+            <em>начинается здесь.</em>
+          </h1>
+          <p>
+            Любимые вещи — в одном месте.
+            <br />
+            Собирайте образы и планируйте, что надеть.
+          </p>
+          <div className="hero-actions">
+            <Link href="/stylist" className="btn btn-primary">
+              <Icon name="sparkle" />
+              Подобрать образ
+            </Link>
+            <AppButton type="button" className="btn btn-secondary" onClick={() => setIdea({})}>
+              <Icon name="plus" />
+              Собрать вручную
+            </AppButton>
+          </div>
+        </div>
+        <div className="hero-art">
+          <img
+            className="hero-photo"
+            src="/assets/style-editorial.webp"
+            alt="Вдохновение: белая рубашка, джинсы и аксессуары в спокойных оттенках"
+            fetchPriority="high"
+          />
+          <div className="hero-photo-label">
+            <Icon name="sparkle" />
+            <div>
+              <strong>Простота. Детали. Вы.</strong>
+              <span>Идея для вдохновения</span>
+            </div>
+          </div>
+        </div>
+      </section>
+      <div className="stats-grid bootstrap-layout">
+        <div className="row bootstrap-stats-row">
+          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+            <Link className="stat-card" href="/wardrobe" data-nav="wardrobe">
+              <span className="stat-icon">
+                <Icon name="wardrobe" />
+              </span>
+              <strong>{state.items.length}</strong>
+              <span>Вещей в гардеробе</span>
+            </Link>
+          </div>
+          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+            <Link className="stat-card" href="/outfits" data-nav="outfits">
+              <span className="stat-icon">
+                <Icon name="outfits" />
+              </span>
+              <strong>{state.outfits.length}</strong>
+              <span>Сохранённых образов</span>
+            </Link>
+          </div>
+          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+            <Link className="stat-card" href="/favorites" data-nav="favorites">
+              <span className="stat-icon">
+                <Icon name="heart" />
+              </span>
+              <strong>{favorites}</strong>
+              <span>В избранном</span>
+            </Link>
+          </div>
+          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+            <Link className="stat-card" href="/calendar" data-nav="calendar">
+              <span className="stat-icon">
+                <Icon name="calendar" />
+              </span>
+              <strong>{state.plans.filter((plan) => plan.date >= today).length}</strong>
+              <span>Предстоящих планов</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+      <WeatherCard onChooseCity={() => setCity(true)} />
+      {state.items.length > 0 &&
+        (daily ? (
+          <section className="daily-look">
+            <div className="daily-look-pieces">
+              {dailyItems.map((item) => (
+                <div className="outfit-piece" title={item.name} key={item.id}>
+                  <ItemArt item={item} />
+                </div>
+              ))}
+            </div>
+            <div className="daily-look-copy">
+              <p className="eyebrow">ИДЕЯ НА СЕГОДНЯ</p>
+              <h2>Новое сочетание из того, что уже есть</h2>
+              <p>{dailyItems.map((item) => item.name).join(' · ')}</p>
+              <p className="daily-look-note">
+                Только ваши доступные вещи. Погода и дресс-код здесь не учитывались — настройте их в
+                стилисте.
+              </p>
+              <div className="daily-look-actions">
+                <AppButton type="button" className="btn btn-primary" onClick={saveDaily}>
+                  <Icon name="plus" />
+                  Изменить и сохранить
+                </AppButton>
+                <Link className="btn btn-ghost" href="/stylist">
+                  <Icon name="sparkle" />
+                  Настроить подбор
+                </Link>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <section className="daily-look daily-look-empty">
+            <div className="daily-look-copy">
+              <p className="eyebrow">НЕБОЛЬШОЕ ВДОХНОВЕНИЕ</p>
+              <h2>Сочетание начинается с ваших вещей</h2>
+              <p>
+                Для этой идеи пока нет полного доступного комплекта. Откройте стилиста и проверьте,
+                какие вещи готовы к выходу.
+              </p>
+              <div className="daily-look-actions">
+                <Link className="btn btn-secondary" href="/stylist">
+                  <Icon name="sparkle" />
+                  Открыть стилиста
+                </Link>
+              </div>
+            </div>
+            <div className="daily-look-empty-art" aria-hidden="true">
+              <Icon name="hanger" />
+            </div>
+          </section>
+        ))}
+      {state.items.length ? (
+        <section className="recent-section">
+          <div className="section-header">
+            <div>
+              <p className="eyebrow">ВАША КОЛЛЕКЦИЯ</p>
+              <h2>Недавно в гардеробе</h2>
+            </div>
+            <Link className="btn btn-ghost" href="/wardrobe" data-nav="wardrobe">
+              Все вещи <Icon name="arrow-right" />
+            </Link>
+          </div>
+          <div className="card-grid">
+            {state.items
+              .slice(-4)
+              .reverse()
+              .map((item) => (
+                <ItemCard item={item} key={item.id} onEdit={() => setEditing(item)} />
+              ))}
+          </div>
+        </section>
+      ) : (
+        <section className="onboarding-panel">
+          <div className="onboarding-head">
+            <div>
+              <p className="eyebrow">НАЧНЁМ С ПРОСТОГО</p>
+              <h2>Ваш гардероб — с чистого листа</h2>
+            </div>
+            <p>Три шага к любимым сочетаниям</p>
+          </div>
+          <div className="onboarding-steps bootstrap-layout">
+            <div className="row bootstrap-onboarding-row">
+              <div className="col-12 col-sm-4 bootstrap-grid-col d-flex">
+                <AppButton
+                  type="button"
+                  className="onboarding-step"
+                  onClick={() => setAdding(true)}
+                >
+                  <span className="step-number">01</span>
+                  <div className="step-copy">
+                    <h3>Добавьте любимую вещь</h3>
+                    <p>Фото, цвет и сезон — всё, что нужно для начала.</p>
+                  </div>
+                  <Icon name="arrow-right" />
+                </AppButton>
+              </div>
+              <div className="col-12 col-sm-4 bootstrap-grid-col d-flex">
+                <AppButton type="button" className="onboarding-step" onClick={() => setIdea({})}>
+                  <span className="step-number">02</span>
+                  <div className="step-copy">
+                    <h3>Соберите первый образ</h3>
+                    <p>Сочетайте вещи и сохраняйте удачные идеи.</p>
+                  </div>
+                  <Icon name="arrow-right" />
+                </AppButton>
+              </div>
+              <div className="col-12 col-sm-4 bootstrap-grid-col d-flex">
+                <Link className="onboarding-step" href="/calendar" data-nav="calendar">
+                  <span className="step-number">03</span>
+                  <div className="step-copy">
+                    <h3>Освободите своё утро</h3>
+                    <p>Выберите образ на день заранее в календаре.</p>
+                  </div>
+                  <Icon name="arrow-right" />
+                </Link>
+              </div>
+            </div>
+          </div>
+          <div className="demo-note">
+            <span>Хотите сначала познакомиться с возможностями?</span>
+            <AppButton type="button" className="btn btn-ghost" onClick={() => setDemo(true)}>
+              <Icon name="arrow-right" />
+              Посмотреть на примере
+            </AppButton>
+          </div>
+        </section>
+      )}
+      <div className="split-panels bootstrap-layout">
+        <div className="row bootstrap-quick-row">
+          <div className="col-12 col-sm-6 bootstrap-grid-col d-flex">
+            <section className="settings-card quick-panel">
+              <div className="quick-panel-icon">
+                <Icon name="calendar" />
+              </div>
+              <div className="quick-panel-copy">
+                <p className="eyebrow">ВАШ СЛЕДУЮЩИЙ ВЫХОД</p>
+                <h2>{upcoming ? dateLabel(upcoming.date) : 'Утро без спешки'}</h2>
+                <p>
+                  {upcoming
+                    ? `${SLOTS[upcoming.slot]}: ${state.outfits.find((outfit) => outfit.id === upcoming.outfitId)?.name || 'Образ'}`
+                    : 'Продумайте образ заранее и оставьте больше времени для себя.'}
+                </p>
+                <Link
+                  className="btn btn-ghost"
+                  href={
+                    upcoming ? `/calendar?date=${encodeURIComponent(upcoming.date)}` : '/calendar'
+                  }
+                  data-nav="calendar"
+                >
+                  Открыть календарь <Icon name="arrow-right" />
+                </Link>
+              </div>
+            </section>
+          </div>
+          <div className="col-12 col-sm-6 bootstrap-grid-col d-flex">
+            <section className="settings-card quick-panel style-tip">
+              <div className="quick-panel-icon">
+                <Icon name="sparkle" />
+              </div>
+              <div className="quick-panel-copy">
+                <p className="eyebrow">МАЛЕНЬКАЯ ИДЕЯ</p>
+                <h2>Начните с любимого</h2>
+                <p>
+                  Выберите одну любимую вещь и соберите вокруг неё новый образ. Иногда вдохновение
+                  уже в вашем шкафу.
+                </p>
+                <Link className="btn btn-ghost" href="/wardrobe" data-nav="wardrobe">
+                  Заглянуть в гардероб <Icon name="arrow-right" />
+                </Link>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+      {(adding || editing) && (
+        <ItemForm
+          item={editing || undefined}
+          onClose={() => {
+            setAdding(false);
+            setEditing(null);
+          }}
+        />
+      )}
+      {idea && <OutfitForm outfit={idea} onClose={() => setIdea(null)} />}
+      {city && <CityDialog onClose={() => setCity(false)} />}
+      {demo && (
+        <ConfirmDialog
+          title="Добавить учебные вещи?"
+          description="Добавим 6 примеров вещей без фотографий и один образ, чтобы вы могли проверить возможности MyCloset. Их можно изменить или удалить."
+          onClose={() => setDemo(false)}
+          onConfirm={async () => {
+            await loadDemo();
+            setDemo(false);
+          }}
+        />
+      )}
+    </>
+  );
+}

@@ -1,3 +1,3 @@
-import DevicesPage from '@/components/devices-page.jsx';
+import DevicesPage from '@/components/pages/devices-page.jsx';
 export const metadata = { title: 'На ваших устройствах' };
 export default DevicesPage;

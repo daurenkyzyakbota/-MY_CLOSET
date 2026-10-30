@@ -1,2 +1,2 @@
-import { Loading } from '@/components/ui.jsx';
+import { Loading } from '@/components/ui/ui.jsx';
 export default Loading;

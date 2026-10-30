@@ -12,6 +12,7 @@ import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { Icon, ItemArt } from '@/components/ui/ui.jsx';
 import OutfitForm from '@/components/forms/outfit-form.jsx';
 import { ShoppingForm } from '@/components/forms/shopping-form.jsx';
+import PublishOutfit from '@/components/forms/publish-outfit.jsx';
 
 const plural = (n, one, few, many) =>
   `${n} ${n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many}`;
@@ -24,6 +25,7 @@ export default function OutfitCard({ outfit, onEdit }) {
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [wearing, setWearing] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const exportArtwork = useRef(null);
   const status = outfitStatus(outfit, state.items);
   const missing = outfit.missingItems || [];
@@ -107,6 +109,19 @@ export default function OutfitCard({ outfit, onEdit }) {
             {plural(status.items.length, 'ваша вещь', 'ваши вещи', 'ваших вещей')}
           </p>
           <h3>{outfit.name}</h3>
+          <AppButton
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setPublishing(true)}
+            disabled={!!status.missing.length || !!missing.length}
+            title={
+              status.missing.length || missing.length
+                ? 'Сначала заполните состав образа'
+                : undefined
+            }
+          >
+            <Icon name="share" />В профиль
+          </AppButton>
           <p className={`outfit-completeness${missing.length ? ' missing-outfit-badge' : ''}`}>
             {missing.length
               ? 'Требует покупки'
@@ -244,6 +259,7 @@ export default function OutfitCard({ outfit, onEdit }) {
         />
       )}
       {shopping && <ShoppingForm entry={shopping} onClose={() => setShopping(null)} />}
+      {publishing && <PublishOutfit outfit={outfit} onClose={() => setPublishing(false)} />}
     </>
   );
 }

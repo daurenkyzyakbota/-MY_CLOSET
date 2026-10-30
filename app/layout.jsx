@@ -13,6 +13,12 @@ import './styles/collections.css';
 import './styles/media-tools.css';
 import './styles/wardrobe-life.css';
 import './styles/account.css';
+import './styles/social-community.css';
+import './styles/social-messages.css';
+import './styles/social-integration.css';
+import './styles/everyday-shell.css';
+import './styles/everyday-community.css';
+import './styles/everyday-wardrobe.css';
 
 const manrope = localFont({
   src: '../public/assets/fonts/manrope.ttf',

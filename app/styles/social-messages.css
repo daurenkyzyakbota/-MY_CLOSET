@@ -1,0 +1,753 @@
+.social-messaging-toplinks,
+.social-notifications-toolbar,
+.social-notification-actions,
+.social-notification-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.social-messaging-toplinks {
+  margin: -8px 0 20px;
+  gap: 22px;
+  font-size: 13px;
+}
+
+.social-messaging-toplinks a,
+.social-notifications-preferences a {
+  color: var(--rose-dark);
+  text-underline-offset: 4px;
+}
+
+.social-messaging-notice {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.social-messages-layout {
+  display: grid;
+  grid-template-columns: minmax(235px, 300px) minmax(0, 1fr);
+  min-height: 620px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+
+.social-conversations,
+.social-chat {
+  min-width: 0;
+}
+
+.social-conversations {
+  background: var(--appearance-surface);
+  border-right: 1px solid var(--line);
+}
+
+.social-conversations-heading,
+.social-chat-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 85px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.social-conversations-heading {
+  justify-content: space-between;
+}
+
+.social-conversations-heading h2 {
+  margin: 0;
+  font-family: var(--font-ui), sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.social-conversation-list,
+.social-chat-log,
+.social-notification-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.social-conversation-list {
+  max-height: 690px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.social-conversation-list li + li {
+  margin-top: 4px;
+}
+
+.social-conversation-button.MuiButton-root {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 14px 11px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.social-conversation-button.MuiButton-root:hover,
+.social-conversation-button.MuiButton-root.is-active {
+  background: var(--appearance-inset);
+  border-color: var(--appearance-line);
+}
+
+.social-chat-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid var(--appearance-line);
+  border-radius: 50%;
+  background: var(--rose-soft);
+  color: var(--rose-dark);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.social-chat-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.social-conversation-copy {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.social-conversation-copy > strong,
+.social-conversation-copy > span {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.social-conversation-copy > strong {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.social-conversation-copy > span,
+.social-conversation-copy time {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.social-conversation-copy time {
+  font-size: 10px;
+}
+
+.social-unread-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--rose-dark);
+  color: var(--paper);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.social-chat {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+.social-chat > .empty-state {
+  margin: auto;
+  padding: 50px 28px;
+  border: 0;
+  background: transparent;
+}
+
+.social-chat-peer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.social-chat-peer > a,
+.social-chat-peer > strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.social-chat-peer > a:hover {
+  color: var(--rose-dark);
+  text-decoration: underline;
+}
+
+.social-chat-peer > span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.social-chat-back.MuiButton-root {
+  display: none;
+}
+
+.social-chat-scroll {
+  flex: 1;
+  height: clamp(300px, 52vh, 650px);
+  min-height: 300px;
+  max-height: 650px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  scrollbar-gutter: stable;
+}
+
+.social-chat-log {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 13px;
+}
+
+.social-chat-message {
+  max-width: min(88%, 540px);
+  padding: 12px 15px 9px;
+  border: 1px solid var(--line);
+  border-radius: 16px 16px 16px 4px;
+  background: var(--appearance-surface);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.social-chat-message.is-own {
+  align-self: flex-end;
+  border-color: var(--appearance-line);
+  border-radius: 16px 16px 4px 16px;
+  background: var(--rose-soft);
+}
+
+.social-chat-message > p {
+  margin: 0 0 5px;
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.social-chat-message > time {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+.social-shared-post {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 10px;
+  background: var(--appearance-surface);
+  color: var(--rose-dark);
+  font-size: 12px;
+  line-height: 1.7;
+  text-decoration: none;
+}
+
+.social-shared-post > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.social-shared-post .icon {
+  flex-shrink: 0;
+}
+
+.social-shared-post.is-unavailable {
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+}
+
+.social-chat-older.MuiButton-root {
+  display: flex;
+  margin: 0 auto 20px;
+  font-size: 11px;
+}
+
+.social-messaging-status,
+.social-chat-first-message {
+  padding: 25px 20px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.9;
+  text-align: center;
+}
+
+.social-messaging-empty-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 30px 22px;
+  color: var(--muted);
+}
+
+.social-messaging-empty-note > .icon {
+  color: var(--rose-dark);
+}
+
+.social-messaging-empty-note h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.social-messaging-empty-note p,
+.social-messaging-empty-note a {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.9;
+}
+
+.social-messaging-empty-note a {
+  color: var(--rose-dark);
+  text-underline-offset: 4px;
+}
+
+.social-chat-error,
+.social-chat-policy {
+  margin: 0 20px 15px;
+  font-size: 12px;
+}
+
+.social-message-composer {
+  margin-top: auto;
+  padding: 18px 22px 20px;
+  border-top: 1px solid var(--line);
+}
+
+.social-message-composer .field {
+  margin-bottom: 10px;
+}
+
+.social-message-composer textarea:not([aria-hidden='true']) {
+  min-height: 72px;
+  max-height: 180px;
+  resize: vertical;
+}
+
+.social-message-compose-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.social-message-compose-actions > .MuiButton-root {
+  font-size: 11px;
+}
+
+.social-message-compose-actions > .MuiButton-root:last-child {
+  margin-left: auto;
+}
+
+.social-message-length {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.social-message-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 10px;
+  background: var(--appearance-inset);
+  color: var(--rose-dark);
+}
+
+.social-message-attachment > span {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.social-attach-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.social-attach-form .field {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.social-attach-form > .MuiButton-root {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.social-notifications-toolbar {
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.social-notification-filters > .MuiButton-root,
+.social-notification-actions > .MuiButton-root {
+  font-size: 12px;
+}
+
+.social-notifications-preferences {
+  margin: 0 0 24px;
+  font-size: 12px;
+}
+
+.social-notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.social-notification {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  transition: background 160ms ease;
+}
+
+.social-notification.is-unread {
+  border-color: var(--appearance-line);
+  background: var(--appearance-inset);
+}
+
+.social-notification-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 14px;
+  background: var(--rose-soft);
+  color: var(--rose-dark);
+}
+
+.social-notification-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.social-notification-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.social-notification-title strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.social-notification-unread-label {
+  padding: 3px 7px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 999px;
+  color: var(--rose-dark);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.social-notification-copy > p {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.social-notification-copy > p a {
+  color: var(--rose-dark);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.social-notification-copy > p a:hover {
+  text-decoration: underline;
+}
+
+.social-notification-copy > time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.social-notification-item-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.social-notification-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  color: var(--rose-dark);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.social-notification-item-actions > .MuiButton-root {
+  min-height: 40px;
+  font-size: 11px;
+}
+
+.social-notifications-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+@media (max-width: 1050px) {
+  .social-messages-layout {
+    grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+  }
+
+  .social-chat-scroll {
+    padding: 18px;
+  }
+
+  .social-message-composer {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .social-messaging-page:has(.has-active-chat:not(.show-conversations)) > .page-header {
+    margin-bottom: 14px;
+  }
+
+  .social-messaging-page:has(.has-active-chat:not(.show-conversations)) > .page-header h1 {
+    font-size: 24px;
+  }
+
+  .social-messaging-page:has(.has-active-chat:not(.show-conversations)) > .page-header .eyebrow,
+  .social-messaging-page:has(.has-active-chat:not(.show-conversations)) > .page-header .subtitle,
+  .social-messaging-page:has(.has-active-chat:not(.show-conversations)) .social-messaging-toplinks {
+    display: none;
+  }
+
+  .social-messages-layout {
+    display: block;
+    min-height: 460px;
+    border-radius: 15px;
+  }
+
+  .social-conversations {
+    border-right: 0;
+  }
+
+  .social-conversation-list {
+    max-height: 65vh;
+  }
+
+  .social-messages-layout.has-active-chat:not(.show-conversations) .social-conversations,
+  .social-messages-layout:not(.has-active-chat) .social-chat,
+  .social-messages-layout.show-conversations .social-chat {
+    display: none;
+  }
+
+  .social-chat-back.MuiButton-root {
+    display: inline-flex;
+  }
+
+  .social-conversations-heading,
+  .social-chat-heading {
+    min-height: 76px;
+    padding: 13px;
+    gap: 10px;
+  }
+
+  .social-chat-heading > .social-chat-avatar {
+    flex-basis: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .social-chat-peer > a,
+  .social-chat-peer > strong {
+    font-size: 12px;
+  }
+
+  .social-chat-heading > .MuiButton-root {
+    min-width: 36px;
+    width: 36px;
+    height: 38px;
+    padding: 7px;
+  }
+
+  .social-chat-scroll {
+    flex: none;
+    height: clamp(180px, calc(100dvh - 560px), 420px);
+    min-height: 180px;
+    max-height: 420px;
+    padding: 15px 11px;
+    scrollbar-gutter: auto;
+  }
+
+  .social-chat-message {
+    max-width: 92%;
+    padding: 10px 12px 8px;
+  }
+
+  .social-chat-message > p {
+    font-size: 12px;
+  }
+
+  .social-message-composer {
+    padding: 14px 11px;
+  }
+
+  .social-message-compose-actions > .MuiButton-root {
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 10px;
+  }
+
+  .social-message-compose-actions > .MuiButton-root:first-child .icon {
+    display: none;
+  }
+
+  .social-message-length {
+    margin-left: 0;
+    font-size: 9px;
+  }
+
+  .social-message-compose-actions > .MuiButton-root:last-child {
+    margin-left: auto;
+  }
+
+  .social-chat-error,
+  .social-chat-policy {
+    margin: 0 11px 12px;
+  }
+
+  .social-attach-form {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .social-notifications-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .social-notification-filters,
+  .social-notification-actions {
+    gap: 7px;
+  }
+
+  .social-notification-filters > .MuiButton-root,
+  .social-notification-actions > .MuiButton-root {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 10px;
+  }
+
+  .social-notification {
+    gap: 11px;
+    padding: 16px 13px;
+    border-radius: 13px;
+  }
+
+  .social-notification-icon {
+    flex-basis: 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .social-notification-icon .icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  .social-notification-title strong,
+  .social-notification-copy > p {
+    font-size: 12px;
+  }
+
+  .social-notification-item-actions {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .social-notification-item-actions > .MuiButton-root {
+    justify-content: flex-start;
+    padding-left: 0;
+    padding-right: 0;
+    white-space: normal;
+  }
+}

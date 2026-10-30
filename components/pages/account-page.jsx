@@ -7,6 +7,7 @@ import { useCloudSync } from '@/components/providers/cloud-sync-provider.jsx';
 import { wardrobeSummary } from '@/lib/cloud/cloud-sync-client.js';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { Field, Icon, Loading, Modal, PageHeader } from '@/components/ui/ui.jsx';
+import AccountSocialPanel from '@/components/social/account-social-panel.jsx';
 
 const statuses = {
   disconnected: 'Синхронизация отключена',
@@ -47,7 +48,7 @@ export default function AccountPage() {
     if (resetToken && resetToken.length <= 2048) {
       setToken(resetToken);
       setMode('reset');
-    }
+    } else if (params.get('mode') === 'signup') setMode('signup');
     if (params.get('error') === 'INVALID_TOKEN')
       setFormError('Ссылка восстановления устарела. Запросите новое письмо.');
   }, []);
@@ -71,8 +72,16 @@ export default function AccountPage() {
     try {
       return await work();
     } catch (cause) {
-      if (cause.name !== 'AbortError')
-        setFormError(cause.message || 'Не удалось выполнить действие.');
+      if (cause.name !== 'AbortError') {
+        if (
+          mode === 'signin' &&
+          ['EMAIL_NOT_VERIFIED', 'email_not_confirmed'].includes(cause.code)
+        ) {
+          setMode('verify');
+          setCode('');
+          setSuccess('Для входа нужно подтвердить почту. Запросите код кнопкой ниже.');
+        } else setFormError(cause.message || 'Не удалось выполнить действие.');
+      }
     } finally {
       setWorking(false);
     }
@@ -95,7 +104,7 @@ export default function AccountPage() {
         setRepeatPassword('');
         if (result.needsVerification) {
           setMode('verify');
-          setSuccess('Аккаунт создан. Подтвердите почту кодом из письма.');
+          setSuccess('Аккаунт создан. Для подтверждения почты запросите код кнопкой ниже.');
         } else setSuccess('Аккаунт создан. Выберите, как подключить гардероб.');
       } else if (mode === 'forgot') {
         await cloud.requestPasswordReset(email.trim());
@@ -193,6 +202,7 @@ export default function AccountPage() {
         </div>
       ) : signedIn ? (
         <>
+          <AccountSocialPanel />
           <div className="row g-4 account-layout">
             <div className="col-12 col-xl-5">
               <section className="settings-card account-card">
@@ -405,6 +415,18 @@ export default function AccountPage() {
                 </div>
               )}
               <h2>{titles[mode]}</h2>
+              {mode === 'signup' && (
+                <p className="footnote">
+                  Укажите имя, почту и придумайте пароль, затем нажмите «Создать аккаунт». После
+                  создания аккаунта вы сможете подтвердить почту в его настройках.
+                </p>
+              )}
+              {mode === 'verify' && (
+                <p className="footnote">
+                  Код подтверждает почту уже созданного аккаунта. Если вы ещё не регистрировались,
+                  сначала создайте аккаунт. Затем запросите код кнопкой ниже.
+                </p>
+              )}
               <form id="account-form" onSubmit={submit}>
                 <fieldset className="form-fieldset" disabled={busy || cloud.requiresHttps}>
                   <div className="form-grid">
@@ -428,6 +450,7 @@ export default function AccountPage() {
                           required
                           maxLength={254}
                           autoComplete="email"
+                          readOnly={mode === 'verify' && !!cloud.user}
                           value={email}
                           onChange={(event) => setEmail(event.target.value)}
                         />
@@ -543,15 +566,6 @@ export default function AccountPage() {
                     >
                       Забыли пароль?
                     </AppButton>
-                    <AppButton
-                      className="btn btn-ghost"
-                      disabled={busy}
-                      onClick={() => {
-                        switchMode('verify');
-                      }}
-                    >
-                      Подтвердить почту кодом
-                    </AppButton>
                   </>
                 )}
                 {mode === 'verify' && (
@@ -561,11 +575,22 @@ export default function AccountPage() {
                     onClick={() =>
                       action(async () => {
                         await cloud.sendVerificationCode(email.trim());
-                        setSuccess('Новый код отправлен. Проверьте почту и папку «Спам».');
+                        setSuccess(
+                          'Запрос принят. Проверьте «Входящие» и «Спам». Код отправляется только для уже зарегистрированного адреса.',
+                        );
                       })
                     }
                   >
-                    Отправить код ещё раз
+                    Запросить код
+                  </AppButton>
+                )}
+                {mode === 'verify' && (
+                  <AppButton
+                    className="btn btn-ghost"
+                    disabled={busy}
+                    onClick={() => switchMode('signup')}
+                  >
+                    Сначала создать аккаунт
                   </AppButton>
                 )}
                 {!['signin', 'signup'].includes(mode) && (

@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 export const { GET, POST } = createCloudHandlers({
-  getUser: currentCloudUser,
+  getUser: () => currentCloudUser({ fresh: true }),
   storage: cloudStorage,
   configured: cloudConfigured,
   report: (code) => console.error('MyCloset cloud request failed:', code),

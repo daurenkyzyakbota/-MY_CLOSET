@@ -5,6 +5,7 @@ import { AppButton } from '@/components/ui/app-button.jsx';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
+import { useSocial } from '@/components/providers/social-provider.jsx';
 import { SLOTS, localDate } from '@/lib/data/model.js';
 import { recommendOutfits } from '@/lib/styling/stylist.js';
 import { searchCities } from '@/lib/weather/weather-client.js';
@@ -12,6 +13,7 @@ import ItemCard from '@/components/cards/item-card.jsx';
 import ItemForm from '@/components/forms/item-form.jsx';
 import OutfitForm from '@/components/forms/outfit-form.jsx';
 import { ConfirmDialog, Icon, ItemArt, Modal } from '@/components/ui/ui.jsx';
+import DailyFocus from '@/components/pages/daily-focus.jsx';
 
 const dateLabel = (value) =>
   new Date(`${value}T12:00:00`).toLocaleDateString('ru-RU', {
@@ -290,6 +292,8 @@ function WeatherCard({ onChooseCity }) {
 
 export default function OverviewPage() {
   const { state, loadDemo } = useCloset();
+  const social = useSocial();
+  const displayName = social.profile?.name || social.user?.name || state.profile.name;
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
   const [idea, setIdea] = useState(null);
@@ -338,11 +342,7 @@ export default function OverviewPage() {
       <div className="dashboard-intro">
         <div>
           <p className="eyebrow">ВАШЕ ПРОСТРАНСТВО СТИЛЯ</p>
-          <h2>
-            {state.profile.name
-              ? `Здравствуйте, ${state.profile.name}`
-              : 'Добро пожаловать в MyCloset'}
-          </h2>
+          <h2>{displayName ? `Здравствуйте, ${displayName}` : 'Добро пожаловать в MyCloset'}</h2>
         </div>
         <span className="today-date">
           <Icon name="calendar" />
@@ -430,6 +430,7 @@ export default function OverviewPage() {
         </div>
       </div>
       <WeatherCard onChooseCity={() => setCity(true)} />
+      <DailyFocus onAddItem={() => setAdding(true)} onCreateOutfit={() => setIdea({})} />
       {state.items.length > 0 &&
         (daily ? (
           <section className="daily-look">

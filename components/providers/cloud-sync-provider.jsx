@@ -200,7 +200,12 @@ export function CloudSyncProvider({ children }) {
     async (work) => {
       requireSecureOrigin();
       const id = latest.current.userId;
-      if (!id || !latest.current.closet.ready || configured !== true)
+      if (
+        !id ||
+        !latest.current.closet.ready ||
+        latest.current.closet.ownerId !== id ||
+        configured !== true
+      )
         throw new CloudSyncError('Войдите в аккаунт и дождитесь открытия гардероба.');
       if (flight.current) throw new CloudSyncError('Дождитесь завершения текущей синхронизации.');
       if (!navigator.onLine) {
@@ -377,7 +382,16 @@ export function CloudSyncProvider({ children }) {
   }, [runJob, fetchRemote, applyRemote, commitConnection, changeStatus]);
 
   useEffect(() => {
+    if (authSession.isPending || closet.ownerId === userId) return;
+    const pending = stop();
+    void Promise.resolve(pending)
+      .catch(() => {})
+      .then(() => closet.switchOwner(userId));
+  }, [authSession.isPending, userId, closet.ownerId, closet.switchOwner, stop]);
+
+  useEffect(() => {
     if (!closet.ready || authSession.isPending || configured !== true) return;
+    if (closet.ownerId !== userId) return;
     if (owner.current === userId) return;
     const previous = owner.current;
     stop();
@@ -390,7 +404,10 @@ export function CloudSyncProvider({ children }) {
     // An unreadable IndexedDB may expose an empty memory fallback. It must never
     // silently replace a previously connected cloud wardrobe on reload.
     const restored =
-      previous === undefined && closet.storageMode === 'persistent' && !requiresHttps
+      previous === undefined &&
+      closet.scopeHasState &&
+      closet.storageMode === 'persistent' &&
+      !requiresHttps
         ? readCloudConnection(browserStorage(), userId)
         : null;
     if (closet.storageMode !== 'persistent') forget(userId);
@@ -408,6 +425,8 @@ export function CloudSyncProvider({ children }) {
     authSession.isPending,
     closet.ready,
     closet.storageMode,
+    closet.ownerId,
+    closet.scopeHasState,
     requiresHttps,
     configured,
     stop,

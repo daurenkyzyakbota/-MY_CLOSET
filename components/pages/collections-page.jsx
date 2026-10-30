@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Checkbox from '@mui/material/Checkbox';
 import LinearProgress from '@mui/material/LinearProgress';
 import Tab from '@mui/material/Tab';
@@ -605,8 +606,18 @@ function CollectionCard({ entry, trip, onEdit, onDelete }) {
 }
 
 export default function CollectionsPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <CollectionsContent />
+    </Suspense>
+  );
+}
+
+function CollectionsContent() {
   const { state, ready, removeCapsule, removeTrip } = useCloset();
-  const [tab, setTab] = useState('capsules');
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tab = searchParams.get('tab') === 'trips' ? 'trips' : 'capsules';
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   if (!ready) return <Loading />;
@@ -643,7 +654,14 @@ export default function CollectionsPage() {
       <Tabs
         className="collection-tabs collection-page-tabs"
         value={tab}
-        onChange={(_event, value) => setTab(value)}
+        onChange={(_event, value) => {
+          const params = new URLSearchParams(searchParams.toString());
+          if (value === 'trips') params.set('tab', 'trips');
+          else params.delete('tab');
+          router.replace('/collections' + (params.size ? '?' + params.toString() : ''), {
+            scroll: false,
+          });
+        }}
         aria-label="Коллекции и поездки"
         variant="fullWidth"
       >

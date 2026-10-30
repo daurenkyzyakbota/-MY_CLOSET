@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
@@ -18,9 +19,42 @@ const normalize = (value) =>
     .replace(/ё/g, 'е');
 
 export default function OutfitsPage({ create = false }) {
+  return (
+    <Suspense fallback={<Loading />}>
+      <OutfitsContent create={create} />
+    </Suspense>
+  );
+}
+
+function OutfitsContent({ create = false }) {
+  const urlQuery = useSearchParams().get('q');
   const { state, ready } = useCloset();
   const [editing, setEditing] = useState(create ? {} : null);
   const [filters, setFilters] = useState(defaults);
+  useEffect(() => {
+    if (urlQuery !== null)
+      setFilters((current) => ({
+        ...current,
+        query: urlQuery.slice(0, 200),
+        occasion: '',
+        status: '',
+      }));
+  }, [urlQuery]);
+  function clearQueryUrl() {
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('q')) {
+        url.searchParams.delete('q');
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+      }
+    } catch {
+      /* Local filters still work if history is restricted. */
+    }
+  }
+  function resetFilters() {
+    clearQueryUrl();
+    setFilters(defaults);
+  }
   const search = useRef(null);
   const outfits = state.outfits;
   const results = useMemo(() => {
@@ -61,7 +95,10 @@ export default function OutfitsPage({ create = false }) {
   }, [outfits, state.items, filters]);
   const active =
     !!filters.query.trim() || !!filters.occasion || !!filters.status || filters.sort !== 'newest';
-  const update = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
+  const update = (key, value) => {
+    if (key === 'query') clearQueryUrl();
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
   if (!ready) return <Loading />;
   return (
     <section className="outfits-page">
@@ -151,11 +188,7 @@ export default function OutfitsPage({ create = false }) {
               Найдено: {results.length} из {outfits.length}
             </span>
             {active && (
-              <AppButton
-                className="button button-ghost"
-                type="button"
-                onClick={() => setFilters(defaults)}
-              >
+              <AppButton className="button button-ghost" type="button" onClick={resetFilters}>
                 Сбросить фильтры образов
               </AppButton>
             )}
@@ -174,7 +207,7 @@ export default function OutfitsPage({ create = false }) {
           title="Образы не найдены"
           description="Попробуйте другое название, повод или готовность образа."
         >
-          <AppButton className="button button-primary" onClick={() => setFilters(defaults)}>
+          <AppButton className="button button-primary" onClick={resetFilters}>
             Сбросить фильтры образов
           </AppButton>
         </EmptyState>

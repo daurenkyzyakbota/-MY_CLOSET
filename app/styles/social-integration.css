@@ -1,0 +1,64 @@
+.social-nav-count {
+  margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  border-radius: 20px;
+  background: var(--rose);
+  color: #fff;
+  font-size: 11px;
+}
+.social-header-link {
+  position: relative;
+}
+.social-header-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--rose);
+}
+.social-publish-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.social-publish-preview > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  text-align: center;
+}
+.social-publish-preview :is(img, svg) {
+  width: 100%;
+  height: 100px;
+  object-fit: contain;
+  border-radius: 10px;
+  background: var(--surface);
+}
+.social-account-panel {
+  margin-bottom: 24px;
+}
+.social-account-panel .account-actions {
+  flex-wrap: wrap;
+}
+.social-account-panel p {
+  overflow-wrap: anywhere;
+}
+.social-delete-form {
+  display: grid;
+  gap: 14px;
+}
+@media (max-width: 600px) {
+  .social-header-link {
+    display: none;
+  }
+}

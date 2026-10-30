@@ -3,6 +3,15 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 function handle(method) {
   return async (request, context) => {
+    const { path = [] } = await context.params;
+    if (path.join('/') === 'delete-user' && method === 'POST')
+      return Response.json(
+        { error: { message: 'Используйте форму удаления в разделе «Аккаунт».' } },
+        {
+          status: 400,
+          headers: { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie' },
+        },
+      );
     if (!cloudConfigured())
       return Response.json(
         { error: { message: 'Облачное подключение ещё не настроено.' } },

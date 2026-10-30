@@ -6,8 +6,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
+import { useCloudSync } from '@/components/providers/cloud-sync-provider.jsx';
+import { useSocial } from '@/components/providers/social-provider.jsx';
 import ItemForm from '@/components/forms/item-form.jsx';
 import ThemePicker from '@/components/ui/theme-picker.jsx';
+import QuickSearch from '@/components/layout/quick-search.jsx';
 import { Icon, Loading, Modal } from '@/components/ui/ui.jsx';
 
 const navigation = [
@@ -20,6 +23,9 @@ const navigation = [
   { href: '/calendar', key: 'calendar', label: 'Календарь', icon: 'calendar' },
   { href: '/collections', key: 'collections', label: 'Коллекции и поездки', icon: 'briefcase' },
   { href: '/insights', key: 'insights', label: 'История и статистика', icon: 'chart' },
+  { href: '/community', key: 'community', label: 'Сообщество', icon: 'users' },
+  { href: '/messages', key: 'messages', label: 'Сообщения', icon: 'message' },
+  { href: '/notifications', key: 'notifications', label: 'Уведомления', icon: 'bell' },
 ];
 const secondary = [
   { href: '/account', key: 'account', label: 'Аккаунт', icon: 'user' },
@@ -34,6 +40,27 @@ const mobile = [
   { href: '/calendar', key: 'calendar', label: 'Календарь', icon: 'calendar' },
 ];
 const moreItems = [
+  {
+    href: '/community',
+    key: 'community',
+    label: 'Сообщество',
+    icon: 'users',
+    description: 'Лента, профили и друзья',
+  },
+  {
+    href: '/messages',
+    key: 'messages',
+    label: 'Сообщения',
+    icon: 'message',
+    description: 'Личная переписка и образы',
+  },
+  {
+    href: '/notifications',
+    key: 'notifications',
+    label: 'Уведомления',
+    icon: 'bell',
+    description: 'Заявки, комментарии и новые сообщения',
+  },
   {
     href: '/account',
     key: 'account',
@@ -86,17 +113,41 @@ const moreItems = [
 ];
 
 export default function MyClosetShell({ children }) {
-  const { ready, storageMode, error } = useCloset();
+  const { ready: closetReady, ownerId, storageMode, error } = useCloset();
+  const cloud = useCloudSync();
+  const social = useSocial();
+  const ready = closetReady && !cloud.sessionLoading && ownerId === (cloud.user?.id || '');
   const pathname = usePathname();
   const [adding, setAdding] = useState(false);
   const [more, setMore] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [online, setOnline] = useState(null);
+  useEffect(() => {
+    if (!ready) setSearching(false);
+  }, [ready, ownerId]);
+  useEffect(() => {
+    const shortcut = (event) => {
+      if (
+        !ready ||
+        event.isComposing ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.key.toLowerCase() !== 'k'
+      )
+        return;
+      if (document.querySelector('[role="dialog"]') && !searching) return;
+      event.preventDefault();
+      setSearching(true);
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, [ready, searching]);
   const active = (href) =>
     href === '/'
       ? pathname === '/'
       : pathname === href ||
         pathname.startsWith(`${href}/`) ||
-        (href === '/settings' && pathname === '/profile');
+        (href === '/settings' && pathname === '/profile') ||
+        (href === '/community' && pathname.startsWith('/people/'));
   const current = [...navigation, ...secondary].find((item) => active(item.href));
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -122,6 +173,9 @@ export default function MyClosetShell({ children }) {
       >
         <Icon name={item.icon} />
         <span>{item.label}</span>
+        {social.counts[item.key] > 0 && (
+          <span className="social-nav-count">{Math.min(social.counts[item.key], 99)}</span>
+        )}
         {item.key === 'home' && <span className="nav-dot" />}
       </Link>
     );
@@ -165,6 +219,15 @@ export default function MyClosetShell({ children }) {
               <strong id="current-page">{current?.label || 'MyCloset'}</strong>
             </div>
             <div className="header-actions">
+              <AppButton
+                className="icon-btn header-quick-search"
+                disabled={!ready}
+                aria-label="Поиск по сайту, Ctrl+K"
+                aria-keyshortcuts="Control+K Meta+K"
+                onClick={() => setSearching(true)}
+              >
+                <Icon name="search" />
+              </AppButton>
               <span
                 className={`connection-status header-connection${online === false ? ' is-offline' : ''}`}
                 data-platform-status
@@ -180,6 +243,14 @@ export default function MyClosetShell({ children }) {
                 <Icon name="phone" />
               </Link>
               <ThemePicker compact />
+              <Link
+                className="icon-btn social-header-link"
+                href="/notifications"
+                aria-label={`Уведомления${social.counts.notifications ? `: ${social.counts.notifications} непрочитанных` : ''}`}
+              >
+                <Icon name="bell" />
+                {social.counts.notifications > 0 && <span className="social-header-dot" />}
+              </Link>
               <div id="add-item-root">
                 <AppButton
                   id="add-item"
@@ -194,11 +265,17 @@ export default function MyClosetShell({ children }) {
               </div>
               <Link
                 className="header-profile icon-btn"
-                href="/settings"
-                data-nav="settings"
-                aria-label="Открыть настройки профиля"
+                href={
+                  social.profile
+                    ? `/people/${social.profile.username}`
+                    : social.user
+                      ? '/community?tab=profile'
+                      : '/settings'
+                }
+                data-nav={social.user ? 'community' : 'settings'}
+                aria-label={social.user ? 'Открыть мой профиль' : 'Открыть настройки профиля'}
               >
-                <Icon name="settings" />
+                <Icon name={social.user ? 'user' : 'settings'} />
               </Link>
             </div>
           </header>
@@ -250,6 +327,21 @@ export default function MyClosetShell({ children }) {
       {more && (
         <Modal title="Ещё для вашего стиля" onClose={() => setMore(false)}>
           <nav className="more-menu">
+            <AppButton
+              className="more-menu-link"
+              disabled={!ready}
+              onClick={() => {
+                setMore(false);
+                setSearching(true);
+              }}
+            >
+              <Icon name="search" />
+              <span>
+                <strong>Найти в MyCloset</strong>
+                <small>Вещи, образы и покупки</small>
+              </span>
+              <Icon name="arrow-right" />
+            </AppButton>
             {moreItems.map((item) => (
               <Link
                 className="more-menu-link"
@@ -270,6 +362,9 @@ export default function MyClosetShell({ children }) {
         </Modal>
       )}
       {adding && <ItemForm onClose={() => setAdding(false)} />}
+      {searching && ready && (
+        <QuickSearch key={ownerId || 'guest'} onClose={() => setSearching(false)} />
+      )}
     </>
   );
 }

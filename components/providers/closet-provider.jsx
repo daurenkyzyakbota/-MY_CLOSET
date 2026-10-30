@@ -35,6 +35,7 @@ import {
   toggleTripPacked as changePacked,
 } from '@/lib/data/wardrobe-life.js';
 import { applyWeekPlans } from '@/lib/styling/week-plan-save.js';
+import { applyItemBatch } from '@/lib/data/item-actions.js';
 
 const ClosetContext = createContext(null);
 export function ClosetProvider({ children }) {
@@ -43,8 +44,15 @@ export function ClosetProvider({ children }) {
     ready: false,
     storageMode: 'loading',
     error: '',
+    ownerId: '',
+    scopeHasState: false,
   }));
   const controllerRef = useRef(null);
+  const ownerRef = useRef(undefined);
+  const requestedOwner = useRef('');
+  const mounted = useRef(false);
+  const switching = useRef(Promise.resolve());
+  const memoryCopies = useRef(new Map());
   const [notice, setNotice] = useState('');
   const noticeTimer = useRef(null);
   const [weather, setWeather] = useState(null);
@@ -59,24 +67,79 @@ export function ClosetProvider({ children }) {
     setNotice(String(message));
     noticeTimer.current = setTimeout(() => setNotice(''), 5500);
   }, []);
+  const switchOwner = useCallback((nextOwner = '') => {
+    if (typeof nextOwner !== 'string' || (nextOwner && !/^[a-zA-Z0-9_-]{1,200}$/.test(nextOwner)))
+      return Promise.reject(new Error('Некорректный аккаунт гардероба.'));
+    requestedOwner.current = nextOwner;
+    const operation = switching.current.then(async () => {
+      if (!mounted.current || requestedOwner.current !== nextOwner) return;
+      if (ownerRef.current === nextOwner && controllerRef.current) return;
+      const previous = controllerRef.current;
+      controllerRef.current = null;
+      setView({
+        state: emptyState(),
+        ready: false,
+        storageMode: 'loading',
+        error: '',
+        ownerId: nextOwner,
+        scopeHasState: false,
+      });
+      weatherRequest.current++;
+      setWeather(null);
+      clearTimeout(noticeTimer.current);
+      setNotice('');
+      if (previous) {
+        await previous.idle();
+        if (previous.snapshot().storageMode === 'memory')
+          memoryCopies.current.set(ownerRef.current || '', previous.snapshot().state);
+        previous.close();
+      }
+      if (!mounted.current || requestedOwner.current !== nextOwner) return;
+      ownerRef.current = nextOwner;
+      const storage = createBrowserStorage({
+        key: nextOwner ? `account:${nextOwner}` : 'state',
+        onVersionChange: (message) => controller.disconnect(message),
+      });
+      const controller = createClosetController(storage, (next) => {
+        if (
+          mounted.current &&
+          controllerRef.current === controller &&
+          requestedOwner.current === nextOwner
+        )
+          setView({ ...next, ownerId: nextOwner, scopeHasState: storage.hasState });
+      });
+      controllerRef.current = controller;
+      await controller.initialize();
+      if (controller.snapshot().storageMode === 'persistent')
+        memoryCopies.current.delete(nextOwner);
+      if (controller.snapshot().storageMode === 'memory' && memoryCopies.current.has(nextOwner))
+        await controller.update(() => memoryCopies.current.get(nextOwner));
+    });
+    switching.current = operation.catch(() => {});
+    return operation;
+  }, []);
   useEffect(() => {
-    let alive = true;
-    const storage = createBrowserStorage({
-      onVersionChange: (message) => controller.disconnect(message),
-    });
-    const controller = createClosetController(storage, (next) => {
-      if (alive) setView(next);
-    });
-    controllerRef.current = controller;
-    void controller.initialize();
+    mounted.current = true;
+    void switchOwner('');
     void removeLegacyWorker().catch(() => {});
     return () => {
-      alive = false;
+      mounted.current = false;
       weatherRequest.current++;
       clearTimeout(noticeTimer.current);
-      controller.close();
-      if (controllerRef.current === controller) controllerRef.current = null;
+      controllerRef.current?.close();
+      controllerRef.current = null;
+      ownerRef.current = undefined;
     };
+  }, [switchOwner]);
+  const readGuestWardrobe = useCallback(async () => {
+    if (memoryCopies.current.has('')) return validateState(memoryCopies.current.get(''));
+    const storage = createBrowserStorage();
+    try {
+      const value = await storage.load();
+      return value === undefined ? emptyState() : validateState(value);
+    } finally {
+      storage.close();
+    }
   }, []);
   const updateState = useCallback(
     async (updater, message = '') => {
@@ -157,6 +220,16 @@ export function ClosetProvider({ children }) {
   const actions = useMemo(
     () => ({
       updateState,
+      switchOwner,
+      readGuestWardrobe,
+      importGuestWardrobe: async () => {
+        const owner = ownerRef.current;
+        if (!owner) throw new Error('Сначала войдите в аккаунт.');
+        const snapshot = await readGuestWardrobe();
+        if (ownerRef.current !== owner || requestedOwner.current !== owner)
+          throw new DOMException('Аккаунт изменился.', 'AbortError');
+        return updateState(() => snapshot, 'Локальный гардероб скопирован в этот аккаунт');
+      },
       notify,
       loadWeather,
       markWorn: (draft) =>
@@ -198,6 +271,38 @@ export function ClosetProvider({ children }) {
           },
           draft.id ? 'Вещь обновлена' : 'Вещь добавлена',
         ),
+      batchItems: async (ids, action, { ownerId: expectedOwner = ownerRef.current } = {}) => {
+        const controller = controllerRef.current;
+        const owner = ownerRef.current;
+        const accountChanged = () =>
+          expectedOwner !== owner ||
+          ownerRef.current !== owner ||
+          requestedOwner.current !== owner ||
+          controllerRef.current !== controller;
+        if (!controller || !controller.snapshot().ready)
+          throw new Error('Подождите, открываем гардероб.');
+        if (accountChanged())
+          throw new DOMException('Аккаунт изменился. Выберите вещи снова.', 'AbortError');
+        let summary;
+        await controller.update((next) => {
+          if (accountChanged())
+            throw new DOMException('Аккаунт изменился. Выберите вещи снова.', 'AbortError');
+          summary = applyItemBatch(next, ids, action);
+        });
+        if (accountChanged()) throw new DOMException('Аккаунт изменился.', 'AbortError');
+        const messages = {
+          favorite: 'Выбранные вещи добавлены в избранное',
+          unfavorite: 'Выбранные вещи убраны из избранного',
+          laundry: 'Выбранные вещи отправлены в стирку',
+          available: 'Выбранные вещи готовы к выходу',
+          delete: 'Выбранные вещи удалены. История и сохранённые образы сохранены',
+        };
+        notify(
+          (summary.changedCount ? messages[action] : 'Выбранные вещи уже имеют это состояние') +
+            (controller.snapshot().storageMode === 'memory' ? ' — до закрытия вкладки' : ''),
+        );
+        return summary;
+      },
       removeItem: (id) =>
         updateState((next) => {
           next.items = next.items.filter((item) => item.id !== id);
@@ -310,7 +415,7 @@ export function ClosetProvider({ children }) {
         );
       },
     }),
-    [updateState, notify, loadWeather],
+    [updateState, notify, loadWeather, switchOwner, readGuestWardrobe],
   );
 
   return (

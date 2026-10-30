@@ -2,11 +2,14 @@
 
 import { AppButton } from '@/components/ui/app-button.jsx';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { CATEGORIES, COLORS, SEASONS } from '@/lib/data/model.js';
 import { STYLE_OPTIONS } from '@/lib/styling/stylist.js';
 import { createStoreSearchLinks } from '@/lib/styling/shopping.js';
 import { filterShoppingList, SHOPPING_SORTS } from '@/lib/styling/shopping-filters.js';
+import { findOwnedAlternatives, ownedAlternativeHref } from '@/lib/styling/purchase-check.js';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
 import {
   ConfirmDialog,
@@ -22,6 +25,9 @@ import {
   LIST_PREFERENCE_KEYS,
   SHOPPING_PREFERENCES,
   sanitizeShoppingPreferences,
+  scopedListPreferenceKey,
+  shoppingUrlOverrides,
+  withoutShoppingUrlQuery,
 } from '@/lib/data/list-preferences.js';
 import { useListPreferences } from '@/components/hooks/use-list-preferences.js';
 
@@ -32,15 +38,39 @@ const normalize = (value) =>
     .trim()
     .toLocaleLowerCase('ru')
     .replace(/\s+/g, ' ');
+const readUrlQuery = () => shoppingUrlOverrides(window.location.search);
+function clearUrlQuery() {
+  try {
+    const next = withoutShoppingUrlQuery(window.location.href);
+    if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`)
+      window.history.replaceState(window.history.state, '', next);
+  } catch {
+    /* Restricted history does not prevent changing the search. */
+  }
+}
 
 export default function ShoppingPage() {
-  const { state, ready, saveShopping, removeShopping, purchaseShopping } = useCloset();
+  const { ownerId } = useCloset();
+  return (
+    <Suspense fallback={<Loading />}>
+      <ShoppingList key={ownerId || 'guest'} />
+    </Suspense>
+  );
+}
+
+function ShoppingList() {
+  const search = useSearchParams().toString();
+  const { state, ready, ownerId, saveShopping, removeShopping, purchaseShopping } = useCloset();
   const [filters, setFilters, restored] = useListPreferences({
-    storageKey: LIST_PREFERENCE_KEYS.shopping,
+    storageKey: scopedListPreferenceKey(LIST_PREFERENCE_KEYS.shopping, ownerId),
     enabled: ready,
     defaults: SHOPPING_PREFERENCES,
     sanitize: sanitizeShoppingPreferences,
+    readOverrides: readUrlQuery,
   });
+  useEffect(() => {
+    if (restored) setFilters((current) => ({ ...current, ...shoppingUrlOverrides(search) }));
+  }, [restored, search, setFilters]);
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [garment, setGarment] = useState(null);
@@ -50,6 +80,15 @@ export default function ShoppingPage() {
     () => filterShoppingList(state.shoppingList, filters),
     [state.shoppingList, filters],
   );
+  const alternatives = useMemo(
+    () =>
+      new Map(
+        state.shoppingList
+          .filter((entry) => entry.status === 'planned')
+          .map((entry) => [entry.id, findOwnedAlternatives(entry, state.items)]),
+      ),
+    [state.shoppingList, state.items],
+  );
   const planned = state.shoppingList.filter((item) => item.status === 'planned');
   const budgeted = planned.filter((item) => item.budget !== null);
   const total = budgeted.reduce((sum, item) => sum + item.budget, 0);
@@ -58,8 +97,14 @@ export default function ShoppingPage() {
   ).length;
   const active = !!filters.query.trim() || !!filters.category || filters.sort !== 'newest';
   const narrowed = !!filters.query.trim() || !!filters.category;
-  const reset = () =>
+  const reset = () => {
+    clearUrlQuery();
     setFilters((current) => ({ ...current, query: '', category: '', sort: 'newest' }));
+  };
+  const updateQuery = (query) => {
+    clearUrlQuery();
+    setFilters((current) => ({ ...current, query }));
+  };
   async function status(item) {
     if (busy) return;
     setBusy(item.id);
@@ -159,9 +204,7 @@ export default function ShoppingPage() {
                 placeholder="Название, заметка или размер"
                 aria-label="Поиск в покупках"
                 value={filters.query}
-                onChange={(event) =>
-                  setFilters((current) => ({ ...current, query: event.target.value }))
-                }
+                onChange={(event) => updateQuery(event.target.value)}
               />
               {filters.query && (
                 <AppButton
@@ -169,7 +212,7 @@ export default function ShoppingPage() {
                   aria-label="Очистить поиск покупок"
                   onClick={(event) => {
                     event.preventDefault();
-                    setFilters((current) => ({ ...current, query: '' }));
+                    updateQuery('');
                     document.getElementById('shopping-search')?.focus();
                   }}
                 >
@@ -227,6 +270,7 @@ export default function ShoppingPage() {
           {list.map((entry) => {
             const owned = state.items.some((item) => item.id === entry.itemId);
             const links = createStoreSearchLinks(entry);
+            const matches = alternatives.get(entry.id) || [];
             return (
               <article className="shopping-card" data-shopping-id={entry.id} key={entry.id}>
                 <div className="shopping-card-header">
@@ -275,6 +319,40 @@ export default function ShoppingPage() {
                     )}
                   </p>
                   {entry.notes && <p className="shopping-notes">{entry.notes}</p>}
+                  {matches.length > 0 && (
+                    <section
+                      className="shopping-owned-check"
+                      aria-label={`Похожие вещи для покупки: ${entry.name}`}
+                    >
+                      <h4>
+                        <Icon name="wardrobe" />
+                        Похожее уже есть в гардеробе
+                      </h4>
+                      <p>
+                        Совпадает категория{entry.colors.length ? ' и цвет' : ''}. Сравните модель,
+                        размер и посадку перед новой покупкой.
+                      </p>
+                      <ul>
+                        {matches.map(({ item, reason, colors }) => (
+                          <li key={item.id}>
+                            <Link href={ownedAlternativeHref(item)}>
+                              {item.name}
+                              <Icon name="arrow-right" size={14} />
+                            </Link>
+                            <span>
+                              {reason}
+                              {colors.length
+                                ? `: ${colors.map((color) => COLORS[color][0].toLocaleLowerCase('ru')).join(', ')}`
+                                : ''}
+                            </span>
+                            <span className={item.available ? 'is-available' : 'is-laundry'}>
+                              {item.available ? 'Готова к выходу' : 'Сейчас в стирке'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
                   {links.length > 0 && (
                     <details className="shopping-store-links">
                       <summary>Поиск похожих</summary>

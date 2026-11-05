@@ -337,7 +337,8 @@ body {
     .device-card,
     .recommendation-card,
     .daily-look,
-    .more-menu-link
+    .more-menu-link,
+    .stylist-waiting
   ) {
   border-color: var(--line);
   background: var(--paper);
@@ -349,6 +350,11 @@ body {
   border-color: var(--line);
   background: var(--paper);
   color: var(--muted);
+}
+[data-theme='dark'] #main .stylist-waiting .stylist-steps > span {
+  border-color: var(--line);
+  background: var(--appearance-inset);
+  color: var(--ink);
 }
 [data-theme='dark'] :is(#main, #modal) .rule-badge {
   border-color: #536146;

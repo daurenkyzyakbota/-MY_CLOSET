@@ -111,6 +111,7 @@ function OutfitsContent({ create = false }) {
       <div className="section-header">
         <p className="subtitle">{outfits.length} сохранённых образов</p>
         <div className="outfits-tools">
+          <Link href="/trash" className="btn btn-ghost">Корзина</Link>
           <Link href="/favorites" className="button button-ghost">
             <Icon name="heart" />
             Избранное

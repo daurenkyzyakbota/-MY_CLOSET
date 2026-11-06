@@ -82,7 +82,7 @@ function fixture() {
 function legacy(version) {
   const state = fixture();
   state.version = version;
-  for (const key of ['wearLog', 'capsules', 'trips']) delete state[key];
+  for (const key of ['wearLog', 'capsules', 'trips', 'trash']) delete state[key];
   if (version < 4)
     for (const item of state.items)
       for (const key of ['subcategory', 'material', 'brand', 'notes', 'purchaseDate'])

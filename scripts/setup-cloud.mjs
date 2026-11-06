@@ -23,6 +23,8 @@ try {
     '../db/002-lossless-json.sql',
     '../db/003-social.sql',
     '../db/004-everyday.sql',
+    '../db/005-notifications.sql',
+    '../db/006-photos.sql',
   ])
     await database.query(readFileSync(new URL(migration, import.meta.url), 'utf8'));
   console.log('Схема облачного гардероба готова. Секреты подключения не выводятся.');

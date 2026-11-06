@@ -195,7 +195,7 @@ export default function ItemCard({ item, onEdit }) {
       {confirmDelete && (
         <ConfirmDialog
           title="Удалить вещь?"
-          description={`«${item.name}» будет удалена. Сохранённые образы останутся, но будут отмечены как неполные, если содержат эту вещь.`}
+          description={`«${item.name}» вместе с фотографией переместится в корзину. Вещь можно восстановить. Сохранённые образы останутся, но до восстановления будут отмечены как неполные, если содержат эту вещь.`}
           onConfirm={remove}
           onClose={() => {
             if (!busy) setConfirmDelete(false);

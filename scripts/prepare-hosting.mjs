@@ -32,6 +32,30 @@ const file = (name, contents) => {
   writeFileSync(destination, contents, 'utf8');
 };
 
+// Workerd supplies browser conditions, while the S3 entry point selects its Node
+// runtime config. Resolve the SDK consistently on the server; mixing it with
+// browser-only Smithy sentinels breaks S3Client before any request is sent.
+file('scripts/vite/mycloset-aws-node.mjs', `import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+export function myclosetAwsNode() {
+  return {
+    name: 'mycloset-aws-node',
+    enforce: 'pre',
+    resolveId(id) {
+      if (['rsc', 'ssr'].includes(this.environment.name) && /^@(aws-sdk|smithy)\\//.test(id))
+        return require.resolve(id);
+    },
+  };
+}
+`);
+let viteConfig = readFileSync(path.join(target, 'vite.config.ts'), 'utf8');
+if (!viteConfig.includes('myclosetAwsNode')) {
+  if (!viteConfig.includes('plugins: [')) throw new Error('Hosting Vite plugin structure changed.');
+  viteConfig = `import { myclosetAwsNode } from './scripts/vite/mycloset-aws-node.mjs';\n${viteConfig}`
+    .replace('plugins: [', 'plugins: [\n      myclosetAwsNode(),');
+  file('vite.config.ts', viteConfig);
+}
+
 if (process.argv.includes('--dependencies')) {
   const app = JSON.parse(readFileSync(path.join(source, 'package.json'), 'utf8'));
   const hosted = JSON.parse(readFileSync(path.join(target, 'package.json'), 'utf8'));
@@ -57,8 +81,9 @@ const metadataStart = databaseCode.indexOf('const metadata =');
 if (metadataStart < 0) throw new Error('Database adapter structure changed.');
 databaseCode = `import { hostedDatabase } from './hosted-context.js';\n\nexport function database() {\n  return hostedDatabase();\n}\n\n${databaseCode.slice(metadataStart)}`;
 file('lib/cloud/cloud-database.js', databaseCode);
-// The Worker keeps a bounded in-memory request. Local backups retain the
-// original, larger format limit; oversized cloud copies remain in Postgres.
+// The Worker bounds one wardrobe JSON document; separate private photo objects
+// have their own quota. Legacy oversized inline copies remain intact in Postgres,
+// and local backups retain the original, larger format limit.
 const cloudHandlersFile = path.join(target, 'lib/cloud/cloud-handlers.js');
 file('lib/cloud/cloud-handlers.js', readFileSync(cloudHandlersFile, 'utf8').replace(
   'const limit = MAX_BACKUP_FILE_BYTES + 4096;',
@@ -66,12 +91,12 @@ file('lib/cloud/cloud-handlers.js', readFileSync(cloudHandlersFile, 'utf8').repl
 ).replace(
   "report(error.code || 'CLOUD_ERROR');",
   `if (error.code === 'CLOUD_COPY_TOO_LARGE')
-          return reply({ error: 'Облачная копия больше 12 МиБ. Она сохранена в базе; откройте локальную версию или резервную копию.', code: error.code }, 413);
+          return reply({ error: 'Данные гардероба для загрузки больше 12 МиБ. Копия сохранена в базе; откройте локальную версию или резервную копию. Фотографии из отдельного хранилища в этот лимит не входят.', code: error.code }, 413);
         report(error.code || 'CLOUD_ERROR');`,
 ));
 databaseCode = readFileSync(databaseFile, 'utf8').replace(
-  'SELECT revision,snapshot_hash,updated_at FROM public.mycloset_wardrobes',
-  'SELECT revision,snapshot_hash,updated_at,octet_length(snapshot::text) AS snapshot_bytes FROM public.mycloset_wardrobes',
+  'SELECT revision,snapshot_hash,wire_hash,updated_at FROM public.mycloset_wardrobes',
+  'SELECT revision,snapshot_hash,wire_hash,updated_at,octet_length(snapshot::text) AS snapshot_bytes FROM public.mycloset_wardrobes',
 ).replace(
   'if (!rows.length) return { ...metadata(null), snapshot: null };',
   `if (!rows.length) return { ...metadata(null), snapshot: null };
@@ -147,11 +172,6 @@ export function GET(request) {
   return Response.json(buildDeviceLinks(request, {}), { headers: { 'Cache-Control': 'no-store' } });
 }
 `);
-const accountPageFile = path.join(target, 'components/pages/account-page.jsx');
-file('components/pages/account-page.jsx', readFileSync(accountPageFile, 'utf8').replace(
-  'Разрешите сохранять в аккаунте вещи, фотографии, образы, покупки, планы и настройки гардероба. После подключения изменения будут сохраняться автоматически.',
-  'Разрешите сохранять в аккаунте вещи, фотографии, образы, покупки, планы и настройки гардероба. После подключения изменения будут сохраняться автоматически. Размер облачной копии с фотографиями — до 12 МиБ.',
-));
 file('worker/index.ts', `import handler from 'vinext/server/fetch-handler';
 import { withHostedDatabase } from '../lib/cloud/hosted-context.js';
 export default {

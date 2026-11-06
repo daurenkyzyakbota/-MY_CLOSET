@@ -70,7 +70,7 @@ const wardrobe = () => [item('top', 'top'), item('bottom', 'bottom'), item('shoe
 const v2 = () => {
   const s = state();
   s.version = 2;
-  for (const key of ['wearLog', 'capsules', 'trips']) delete s[key];
+  for (const key of ['wearLog', 'capsules', 'trips', 'trash']) delete s[key];
   for (const i of s.items)
     for (const key of ['subcategory', 'material', 'brand', 'notes', 'purchaseDate']) delete i[key];
   delete s.shoppingList;

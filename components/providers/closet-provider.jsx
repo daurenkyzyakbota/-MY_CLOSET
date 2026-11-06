@@ -37,6 +37,15 @@ import {
 import { applyWeekPlans } from '@/lib/styling/week-plan-save.js';
 import { applyItemBatch } from '@/lib/data/item-actions.js';
 import { assertRecordUnchanged } from '@/lib/data/record-edits.js';
+import {
+  moveItemsToTrash,
+  moveOutfitToTrash,
+  restoreTrashEntry,
+  permanentlyRemoveTrash,
+  clearTrash,
+} from '@/lib/data/trash.js';
+import { AppButton } from '@/components/ui/app-button.jsx';
+import { addItemBatch } from '@/lib/data/bulk-items.js';
 
 const ClosetContext = createContext(null);
 export function ClosetProvider({ children }) {
@@ -56,6 +65,8 @@ export function ClosetProvider({ children }) {
   const memoryCopies = useRef(new Map());
   const [notice, setNotice] = useState('');
   const noticeTimer = useRef(null);
+  const undoFlight = useRef(false);
+  const [undoing, setUndoing] = useState(false);
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState('');
@@ -155,12 +166,15 @@ export function ClosetProvider({ children }) {
           throw new DOMException('Аккаунт изменился. Откройте форму заново.', 'AbortError');
       };
       assertScope();
-      const next = await controller.update(async (draft) => {
-        assertScope();
-        const result = typeof updater === 'function' ? await updater(draft) : updater;
-        assertScope();
-        return result;
-      });
+      const next = await controller.update(
+        async (draft) => {
+          assertScope();
+          const result = typeof updater === 'function' ? await updater(draft) : updater;
+          assertScope();
+          return result;
+        },
+        { undo: !!message, label: message },
+      );
       assertScope();
       if (message)
         notify(
@@ -247,6 +261,36 @@ export function ClosetProvider({ children }) {
         return updateState(() => snapshot, 'Локальный гардероб скопирован в этот аккаунт');
       },
       notify,
+      undoLastChange: async () => {
+        if (undoFlight.current) return;
+        const controller = controllerRef.current;
+        const owner = view.ownerId;
+        const assertCurrent = () => {
+          if (!controller || controllerRef.current !== controller ||
+            ownerRef.current !== owner || requestedOwner.current !== owner)
+            throw new DOMException('Аккаунт изменился. Отмена недоступна.', 'AbortError');
+        };
+        assertCurrent();
+        undoFlight.current = true;
+        setUndoing(true);
+        try {
+          await controller.undo({ assertCurrent });
+          assertCurrent();
+          notify('Последнее действие отменено');
+        } finally {
+          undoFlight.current = false;
+          setUndoing(false);
+        }
+      },
+      restoreTrash: (id, options) => updateState((next) => {
+        restoreTrashEntry(next, id, options);
+      }, 'Запись восстановлена из корзины'),
+      purgeTrash: (id) => updateState((next) => {
+        permanentlyRemoveTrash(next, id);
+      }, 'Запись удалена из корзины'),
+      emptyTrash: (options) => updateState((next) => {
+        clearTrash(next, options);
+      }, 'Корзина очищена'),
       loadWeather,
       markWorn: (draft) =>
         updateState((next) => {
@@ -277,7 +321,7 @@ export function ClosetProvider({ children }) {
       toggleTripPacked: (tripId, itemId) =>
         updateState((next) => {
           changePacked(next, tripId, itemId);
-        }),
+        }, 'Список собранных вещей обновлён'),
       saveWeek: (proposals) =>
         updateState((next) => {
           applyWeekPlans(next, proposals);
@@ -290,6 +334,15 @@ export function ClosetProvider({ children }) {
           },
           draft.id ? 'Вещь обновлена' : 'Вещь добавлена',
         ),
+      addItemsBatch: async (drafts, { ownerId: expectedOwner } = {}) => {
+        if (expectedOwner !== view.ownerId)
+          throw new DOMException('Аккаунт изменился. Выберите фотографии заново.', 'AbortError');
+        return updateState((next) => {
+          if (ownerRef.current !== expectedOwner || requestedOwner.current !== expectedOwner)
+            throw new DOMException('Аккаунт изменился. Выберите фотографии заново.', 'AbortError');
+          addItemBatch(next, drafts);
+        }, `Добавлено вещей: ${drafts.length}`);
+      },
       batchItems: async (ids, action, { ownerId: expectedOwner = ownerRef.current } = {}) => {
         const controller = controllerRef.current;
         const owner = ownerRef.current;
@@ -307,14 +360,14 @@ export function ClosetProvider({ children }) {
           if (accountChanged())
             throw new DOMException('Аккаунт изменился. Выберите вещи снова.', 'AbortError');
           summary = applyItemBatch(next, ids, action);
-        });
+        }, { label: action === 'delete' ? 'Вещи перемещены в корзину' : 'Массовое изменение вещей' });
         if (accountChanged()) throw new DOMException('Аккаунт изменился.', 'AbortError');
         const messages = {
           favorite: 'Выбранные вещи добавлены в избранное',
           unfavorite: 'Выбранные вещи убраны из избранного',
           laundry: 'Выбранные вещи отправлены в стирку',
           available: 'Выбранные вещи готовы к выходу',
-          delete: 'Выбранные вещи удалены. История и сохранённые образы сохранены',
+          delete: 'Выбранные вещи перемещены в корзину',
         };
         notify(
           (summary.changedCount ? messages[action] : 'Выбранные вещи уже имеют это состояние') +
@@ -324,11 +377,8 @@ export function ClosetProvider({ children }) {
       },
       removeItem: (id) =>
         updateState((next) => {
-          next.items = next.items.filter((item) => item.id !== id);
-          next.shoppingList = next.shoppingList.map((item) =>
-            item.itemId === id ? { ...item, itemId: '' } : item,
-          );
-        }, 'Вещь удалена. Состав сохранённых образов можно проверить в разделе «Образы».'),
+          moveItemsToTrash(next, [id]);
+        }, 'Вещь перемещена в корзину'),
       toggleItem: (id, key) =>
         updateState((next) => {
           if (!['favorite', 'available'].includes(key))
@@ -336,7 +386,7 @@ export function ClosetProvider({ children }) {
           const item = next.items.find((value) => value.id === id);
           if (!item) throw new Error('Вещь не найдена.');
           item[key] = !item[key];
-        }),
+        }, key === 'favorite' ? 'Избранное вещи обновлено' : 'Доступность вещи обновлена'),
       saveOutfit: (draft, { expectedRecord } = {}) =>
         updateState(
           (next) => {
@@ -347,15 +397,14 @@ export function ClosetProvider({ children }) {
         ),
       removeOutfit: (id) =>
         updateState((next) => {
-          next.outfits = next.outfits.filter((outfit) => outfit.id !== id);
-          next.plans = next.plans.filter((plan) => plan.outfitId !== id);
-        }, 'Образ удалён'),
+          moveOutfitToTrash(next, id);
+        }, 'Образ перемещён в корзину'),
       toggleOutfit: (id) =>
         updateState((next) => {
           const outfit = next.outfits.find((value) => value.id === id);
           if (!outfit) throw new Error('Образ не найден.');
           outfit.favorite = !outfit.favorite;
-        }),
+        }, 'Избранное образа обновлено'),
       savePlan: (draft, { expectedRecord } = {}) =>
         updateState((next) => {
           assertRecordUnchanged(next, 'plans', draft.id, expectedRecord);
@@ -457,15 +506,22 @@ export function ClosetProvider({ children }) {
         );
       },
     }),
-    [updateState, notify, loadWeather, switchOwner, readGuestWardrobe],
+    [updateState, notify, loadWeather, switchOwner, readGuestWardrobe, view.ownerId],
   );
 
   return (
-    <ClosetContext.Provider value={{ ...view, ...actions, weather, weatherLoading, weatherError }}>
+    <ClosetContext.Provider value={{ ...view, ...actions, undoing, weather, weatherLoading, weatherError }}>
       {children}
       {notice && (
         <div className="toast" role="status">
-          {notice}
+          <span>{notice}</span>
+          {view.canUndo && (
+            <AppButton className="toast-undo" disabled={undoing} onClick={() => {
+              void actions.undoLastChange().catch((cause) => notify(cause.message));
+            }}>
+              {undoing ? 'Отменяем…' : 'Отменить'}
+            </AppButton>
+          )}
         </div>
       )}
     </ClosetContext.Provider>

@@ -31,6 +31,7 @@ const navigation = [
 const secondary = [
   { href: '/account', key: 'account', label: 'Аккаунт', icon: 'user' },
   { href: '/devices', key: 'devices', label: 'На ваших устройствах', icon: 'phone' },
+  { href: '/trash', key: 'trash', label: 'Корзина', icon: 'trash' },
   { href: '/settings', key: 'settings', label: 'Настройки', icon: 'settings' },
 ];
 const mobile = [
@@ -41,6 +42,13 @@ const mobile = [
   { href: '/calendar', key: 'calendar', label: 'Календарь', icon: 'calendar' },
 ];
 const moreItems = [
+  {
+    href: '/trash',
+    key: 'trash',
+    label: 'Корзина',
+    icon: 'trash',
+    description: 'Восстановить вещи и образы',
+  },
   {
     href: '/community',
     key: 'community',

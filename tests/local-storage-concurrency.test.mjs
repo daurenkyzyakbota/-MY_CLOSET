@@ -267,3 +267,32 @@ test('an aborted write does not advance the baseline or claim persisted data, an
   assert.equal(storage.hasState, true);
   assert.equal(database.read().items[0].name, 'Сохранённая');
 });
+
+test('undo in an old tab cannot overwrite a newer persisted edit from another tab', async () => {
+  const database = indexedDatabase();
+  const first = createClosetController(createBrowserStorage(database));
+  await first.initialize();
+  await first.update(() => wardrobe('Первая вещь'));
+  const second = createClosetController(createBrowserStorage(database));
+  await second.initialize();
+  await second.update((state) => { state.profile.name = 'Правка другой вкладки'; });
+  const stored = database.read();
+  await assert.rejects(first.undo(), { code: 'LOCAL_WARDROBE_CONFLICT' });
+  assert.deepEqual(database.read(), stored);
+  assert.equal(first.snapshot().state.items.length, 1);
+  assert.equal(first.snapshot().canUndo, true);
+});
+
+test('undo stays inside its account storage and a fresh account never inherits another account undo', async () => {
+  const database = indexedDatabase();
+  const first = createClosetController(createBrowserStorage({ ...database, key: 'account:first' }));
+  const second = createClosetController(createBrowserStorage({ ...database, key: 'account:second' }));
+  await Promise.all([first.initialize(), second.initialize()]);
+  await first.update(() => wardrobe('Первый аккаунт'));
+  assert.equal(second.snapshot().canUndo, false);
+  await assert.rejects(second.undo());
+  await second.update(() => wardrobe('Второй аккаунт'));
+  await first.undo();
+  assert.deepEqual(database.read('account:first'), emptyState());
+  assert.equal(database.read('account:second').items[0].name, 'Второй аккаунт');
+});

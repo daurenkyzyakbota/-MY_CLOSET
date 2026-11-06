@@ -265,8 +265,20 @@ export default function SettingsPage() {
               />
               <p className="footnote">
                 Копия содержит профиль, фотографии, вещи, образы, покупки, планы, историю носки,
-                капсулы и поездки. Сохраняйте её время от времени.
+                капсулы, поездки и корзину. Сохраняйте её время от времени.
               </p>
+            </section>
+            <section className="settings-card">
+              <p className="eyebrow">МОЖНО ВЕРНУТЬ</p>
+              <h2>Корзина и отмена</h2>
+              <p>В корзине: {(state.trash || []).length}. Вещи и образы сохраняются там вместе с фотографиями до вашей явной очистки.</p>
+              <div className="wardrobe-tools-links">
+                <Link className="btn btn-secondary" href="/trash">Открыть корзину</Link>
+                <AppButton className="btn btn-secondary" disabled={!closet.canUndo || closet.undoing} onClick={() => {
+                  void closet.undoLastChange().catch((cause) => closet.notify(cause.message));
+                }}>Отменить последнее действие</AppButton>
+              </div>
+              <p className="footnote">{closet.canUndo ? closet.undoLabel : 'Пока нет действия для отмены.'} Отмена доступна до перезагрузки или смены аккаунта. Получение новых облачных данных сбрасывает её, чтобы сохранить чужие изменения.</p>
             </section>
             <section className="settings-card">
               <p className="eyebrow">ЧИСТЫЙ ЛИСТ</p>

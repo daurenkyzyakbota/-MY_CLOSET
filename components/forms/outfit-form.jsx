@@ -177,7 +177,7 @@ export default function OutfitForm({ outfit, onClose }) {
     return (
       <ConfirmDialog
         title="Удалить образ?"
-        description={`«${persisted?.name || outfit?.name || 'Образ'}» и связанные с ним планы в календаре будут удалены. Ваши вещи останутся в гардеробе.`}
+        description={`«${persisted?.name || outfit?.name || 'Образ'}» и связанные планы переместятся в корзину. Образ можно восстановить, а планы — вернуть, если время свободно. Ваши вещи останутся в гардеробе.`}
         onClose={() => setConfirmDelete(false)}
         onConfirm={async () => {
           await removeOutfit(outfit.id);

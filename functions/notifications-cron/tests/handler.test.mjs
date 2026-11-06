@@ -22,12 +22,14 @@ function request(body = payload(), headers = {}, path = '/cron', method = 'POST'
 }
 function fixture(overrides = {}) {
   const calls = [];
+  const reports = [];
   const app = createNotificationCron({
     environment: () => environment,
     fetchImpl: async (url, options) => { calls.push({ url, options }); return new Response('fixture response', { status: 200 }); },
+    report: (event) => reports.push(event),
     ...overrides,
   });
-  return { app, calls };
+  return { app, calls, reports };
 }
 
 test('missing, wrong reserved header and mismatched invocation are unauthorized before any downstream fetch', async () => {
@@ -154,4 +156,66 @@ test('missing secrets and unsafe dispatch configuration fail closed without requ
   const { app, calls } = fixture({ environment: () => ({}) });
   assert.equal((await app.fetch(request())).status, 503);
   assert.deepEqual(calls, []);
+});
+
+test('native microseconds and up to nine fractional digits are accepted while invalid calendar dates remain rejected', async () => {
+  const { app, calls } = fixture();
+  for (const fraction of ['1', '12', '123', '1234', '12345', '123456', '1234567', '12345678', '123456789'])
+    assert.equal((await app.fetch(request(payload({ data: { scheduled_at: `2026-11-07T00:05:00.${fraction}Z` } })))).status, 200);
+  for (const scheduled_at of ['2026-11-07T00:05:00.1234567890Z', '2026-02-30T00:05:00.123456Z', '2026-11-07T24:05:00.123456Z'])
+    assert.equal((await app.fetch(request(payload({ data: { scheduled_at } })))).status, 400);
+  assert.equal(calls.length, 9);
+});
+
+test('rejection telemetry never includes trigger payload, header values or credentials', async () => {
+  const { app, reports, calls } = fixture();
+  const missing = request(payload({ private: 'PRIVATE_PAYLOAD' }), { Authorization: 'Bearer PRIVATE_HEADER' });
+  missing.headers.delete('x-neon-trigger-invocation-id');
+  assert.equal((await app.fetch(missing)).status, 401);
+  assert.equal((await app.fetch(request('{PRIVATE_BODY'))).status, 400);
+  assert.equal((await app.fetch(request(payload(), { 'X-Neon-Trigger-Invocation-Id': 'PRIVATE_MISMATCH' }))).status, 401);
+  assert.equal((await app.fetch(request(payload({ data: { scheduled_at: 'PRIVATE_SCHEDULE' } })))).status, 400);
+  assert.deepEqual(reports, [
+    { phase: 'provenance_rejected', status: 401 },
+    { phase: 'body_rejected', status: 400 },
+    { phase: 'parser_rejected', status: 401 },
+    { phase: 'schedule_rejected', status: 400 },
+  ]);
+  assert.doesNotMatch(JSON.stringify(reports), /PRIVATE|fixture|Bearer|Every minute/);
+  assert.deepEqual(calls, []);
+});
+
+test('downstream status and generic retries are logged without body, target or exception details', async () => {
+  const success = fixture();
+  assert.equal((await success.app.fetch(request())).status, 200);
+  assert.deepEqual(success.reports, [{ phase: 'downstream', status: 200 }]);
+  const failure = fixture({ fetchImpl: async () => new Response('PRIVATE_BODY', { status: 403 }) });
+  assert.equal((await failure.app.fetch(request())).status, 503);
+  assert.deepEqual(failure.reports, [{ phase: 'downstream', status: 403 }]);
+  const network = fixture({ fetchImpl: async () => { throw new Error('PRIVATE_EXCEPTION'); } });
+  assert.equal((await network.app.fetch(request())).status, 503);
+  assert.deepEqual(network.reports, [{ phase: 'network_retry', status: 503 }]);
+  const missing = fixture({ environment: () => ({}) });
+  assert.equal((await missing.app.fetch(request())).status, 503);
+  assert.deepEqual(missing.reports, [{ phase: 'configuration_retry', status: 503 }]);
+  assert.doesNotMatch(JSON.stringify([...success.reports, ...failure.reports, ...network.reports, ...missing.reports]), /PRIVATE|https|Bearer|secret|fixture/);
+});
+
+test('default console reporter contains only phase and status; reporter exceptions cannot bypass auth or change successful delivery', async () => {
+  const originalInfo = console.info;
+  const messages = [];
+  console.info = (...args) => messages.push(args);
+  try {
+    const app = createNotificationCron({ environment: () => environment, fetchImpl: async () => new Response('PRIVATE_BODY', { status: 200 }) });
+    assert.equal((await app.fetch(request())).status, 200);
+  } finally { console.info = originalInfo; }
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].length, 1);
+  assert.deepEqual(JSON.parse(messages[0][0]), { phase: 'downstream', status: 200 });
+  const { app, calls } = fixture({ report: () => { throw new Error('PRIVATE_LOG_FAILURE'); } });
+  const missing = request(); missing.headers.delete('x-neon-trigger-invocation-id');
+  assert.equal((await app.fetch(missing)).status, 401);
+  assert.equal(calls.length, 0);
+  assert.equal((await app.fetch(request())).status, 200);
+  assert.equal(calls.length, 1);
 });

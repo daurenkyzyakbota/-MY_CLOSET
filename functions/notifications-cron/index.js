@@ -31,7 +31,7 @@ function validSchedule(invocation) {
   for (const value of [invocation.invocationId, invocation.trigger.id, invocation.trigger.name])
     if (value.length > 256 || /[\u0000-\u001f\u007f]/u.test(value)) return false;
   const value = invocation.data.scheduledAt;
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(value)) return false;
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 19) === value.slice(0, 19);
 }
@@ -65,22 +65,33 @@ export function createNotificationCron({
   environment = () => process.env,
   fetchImpl = (...args) => fetch(...args),
   timeoutMs = 15000,
+  report = (event) => console.info(JSON.stringify(event)),
 } = {}) {
+  const record = (phase, status) => {
+    // Static phase names and numeric HTTP statuses only: no request, payload,
+    // environment, downstream body or exception reaches the reporter.
+    try { if (typeof report === 'function') report({ phase, status }); }
+    catch { /* Logging must not affect authorization or retry behavior. */ }
+  };
+  const reject = (phase, error, status, headers) => {
+    record(phase, status);
+    return reply(error, status, headers);
+  };
   return {
     async fetch(request) {
       try {
-        if (new URL(request.url).pathname !== '/cron') return reply('not_found', 404);
-        if (request.method !== 'POST') return reply('method_not_allowed', 405, { Allow: 'POST' });
+        if (new URL(request.url).pathname !== '/cron') return reject('route_rejected', 'not_found', 404);
+        if (request.method !== 'POST') return reject('method_rejected', 'method_not_allowed', 405, { Allow: 'POST' });
         // Reject arbitrary HTTP before reading JSON or inspecting server secrets.
         // The value is a correlation ID, never an application secret or JWT.
-        if (!request.headers.get(TRIGGER_HEADER)?.trim()) return reply('unauthorized', 401);
+        if (!request.headers.get(TRIGGER_HEADER)?.trim()) return reject('provenance_rejected', 'unauthorized', 401);
         const input = await readBody(request);
-        if (input.error) return reply(input.error, input.status);
+        if (input.error) return reject('body_rejected', input.error, input.status);
         const parsed = parseTriggerDelivery({ headers: request.headers, body: input.body });
-        if (!parsed.ok) return reply(parsed.error === 'invalid_body' ? 'invalid_payload' : 'unauthorized', parsed.error === 'invalid_body' ? 400 : 401);
-        if (!validSchedule(parsed.invocation)) return reply('invalid_payload', 400);
+        if (!parsed.ok) return reject('parser_rejected', parsed.error === 'invalid_body' ? 'invalid_payload' : 'unauthorized', parsed.error === 'invalid_body' ? 400 : 401);
+        if (!validSchedule(parsed.invocation)) return reject('schedule_rejected', 'invalid_payload', 400);
         const configuration = dispatchConfiguration(environment());
-        if (!configuration) return retry();
+        if (!configuration) { record('configuration_retry', 503); return retry(); }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
@@ -93,10 +104,11 @@ export function createNotificationCron({
           // A response preview can contain provider details. Never read, return
           // or log it: Neon retains failed responses in its retry history.
           void response.body?.cancel().catch(() => {});
+          record('downstream', response.status);
           return response.ok ? reply(null, 200) : retry();
-        } catch { return retry(); }
+        } catch { record('network_retry', 503); return retry(); }
         finally { clearTimeout(timer); controller.abort(); }
-      } catch { return retry(); }
+      } catch { record('handler_retry', 503); return retry(); }
     },
   };
 }

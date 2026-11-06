@@ -1,2 +1,2 @@
-import OverviewPage from '@/components/overview-page.jsx';
+import OverviewPage from '@/components/pages/overview-page.jsx';
 export default OverviewPage;

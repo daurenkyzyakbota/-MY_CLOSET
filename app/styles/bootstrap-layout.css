@@ -1,0 +1,134 @@
+/* Bootstrap rows/columns provide layout; original MyCloset surfaces stay intact. */
+.stats-grid.bootstrap-layout,
+.onboarding-steps.bootstrap-layout,
+.split-panels.bootstrap-layout,
+.settings-layout.bootstrap-layout,
+.devices-layout.bootstrap-layout {
+  display: block;
+}
+
+.bootstrap-layout > .row {
+  --bs-gutter-y: 0;
+  gap: 0;
+  row-gap: var(--closet-row-gap, var(--bs-gutter-x));
+}
+
+.bootstrap-grid-col {
+  min-width: 0;
+}
+
+.bootstrap-grid-col > .stat-card,
+.bootstrap-grid-col > .onboarding-step,
+.bootstrap-grid-col > .quick-panel,
+.bootstrap-settings-main > .settings-card,
+.bootstrap-device-main > .device-card {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.bootstrap-stats-row {
+  --bs-gutter-x: 16px;
+}
+.bootstrap-onboarding-row {
+  --bs-gutter-x: 15px;
+}
+.bootstrap-quick-row {
+  --bs-gutter-x: 20px;
+}
+.bootstrap-settings-row,
+.bootstrap-devices-row {
+  --bs-gutter-x: 23px;
+}
+
+.bootstrap-settings-main > .settings-card {
+  margin-bottom: 0;
+}
+
+/* Moving cards inside Bootstrap columns preserves their original ordinal accents. */
+.bootstrap-stats-row > :nth-child(2) .stat-icon {
+  background: var(--rose-soft);
+  color: #ba8093;
+}
+.bootstrap-stats-row > :nth-child(3) .stat-icon {
+  background: #f3f4e9;
+  color: #929770;
+}
+.bootstrap-stats-row > :nth-child(4) .stat-icon {
+  background: #efedf5;
+  color: #a395b3;
+}
+.bootstrap-onboarding-row > :not(:first-child) > .onboarding-step {
+  border-color: #eadfdf;
+  background: #fcfaf8;
+}
+.bootstrap-onboarding-row > :not(:first-child) > .onboarding-step:hover {
+  border-color: #d0a9b8;
+  background: #fcf5f7;
+}
+
+/* The previous uneven two-column proportions used a custom 1080px breakpoint. */
+@media (min-width: 1080.02px) {
+  .bootstrap-settings-row > .bootstrap-settings-main {
+    width: calc(52.8301886792% - var(--bs-gutter-x) * 0.0566037736);
+  }
+  .bootstrap-settings-row > .bootstrap-settings-side {
+    width: calc(47.1698113208% + var(--bs-gutter-x) * 0.0566037736);
+  }
+  .bootstrap-devices-row > .bootstrap-device-main {
+    width: calc(52.380952381% - var(--bs-gutter-x) * 0.0476190476);
+  }
+  .bootstrap-devices-row > .bootstrap-device-side {
+    width: calc(47.619047619% + var(--bs-gutter-x) * 0.0476190476);
+  }
+}
+
+@media (max-width: 1080px) {
+  .bootstrap-onboarding-row {
+    --bs-gutter-x: 10px;
+  }
+  .bootstrap-quick-row {
+    --bs-gutter-x: 16px;
+  }
+}
+
+@media (max-width: 760px) {
+  .bootstrap-stats-row {
+    --bs-gutter-x: 11px;
+  }
+}
+
+/* Bootstrap's sm tier is 576px; the restored interface changes at 600px. */
+@media (max-width: 600px) {
+  .bootstrap-stats-row {
+    --bs-gutter-x: 12px;
+  }
+  .bootstrap-stats-row > .col-6 {
+    width: 50%;
+  }
+  .bootstrap-onboarding-row {
+    --bs-gutter-x: 10px;
+  }
+  .bootstrap-quick-row {
+    --bs-gutter-x: 15px;
+  }
+  .bootstrap-onboarding-row > .col-12,
+  .bootstrap-quick-row > .col-12 {
+    width: 100%;
+  }
+  .bootstrap-devices-row {
+    --bs-gutter-x: 17px;
+  }
+}
+
+@media (max-width: 560px) {
+  .bootstrap-settings-row {
+    --bs-gutter-x: 18px;
+  }
+}
+
+@media (max-width: 380px) {
+  .bootstrap-stats-row {
+    --bs-gutter-x: 10px;
+  }
+}

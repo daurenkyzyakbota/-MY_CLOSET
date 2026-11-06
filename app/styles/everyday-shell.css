@@ -1,0 +1,342 @@
+.everyday-focus {
+  margin: 28px 0;
+}
+@media (max-width: 400px) {
+  .hero .hero-actions,
+  .daily-look .daily-look-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .hero .hero-actions > :is(.btn, .button),
+  .daily-look .daily-look-actions > :is(.btn, .button) {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    justify-content: center;
+  }
+}
+.everyday-start,
+.everyday-card,
+.everyday-trip {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 20px;
+}
+.everyday-start {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.everyday-start h2 {
+  font-size: 21px;
+  margin: 4px 0 8px;
+}
+.everyday-start p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.everyday-start .eyebrow {
+  color: var(--rose-dark);
+}
+.everyday-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 500px;
+}
+.everyday-steps .btn {
+  font-size: 12px;
+}
+.everyday-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.everyday-card {
+  padding: 24px;
+}
+.everyday-card .section-header h2 {
+  font-size: 21px;
+  line-height: 1.3;
+}
+.everyday-card .section-header {
+  margin-bottom: 18px;
+}
+.everyday-plan {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.everyday-plan:first-of-type {
+  padding-top: 0;
+}
+.everyday-plan > div {
+  min-width: 0;
+}
+.everyday-plan h3 {
+  font-size: 15px;
+  margin: 9px 0 5px;
+  overflow-wrap: anywhere;
+}
+.everyday-plan .footnote {
+  margin: 0;
+}
+.everyday-plan .btn {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.everyday-calm {
+  padding: 18px 0;
+  color: var(--muted);
+}
+.everyday-calm p {
+  max-width: 45ch;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.everyday-mini-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding-top: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.everyday-mini-stats a {
+  text-decoration: none;
+  color: inherit;
+}
+.everyday-mini-stats strong {
+  color: var(--ink);
+  font-size: 18px;
+  margin-right: 5px;
+}
+.everyday-forgotten {
+  display: grid;
+  gap: 12px;
+}
+.everyday-garment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.everyday-garment > a {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+.everyday-garment > a > span:last-child {
+  min-width: 0;
+}
+.everyday-garment strong,
+.everyday-garment small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.everyday-garment strong {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.everyday-garment small {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 4px;
+}
+.everyday-garment-art {
+  width: 54px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--rose-soft);
+}
+.everyday-garment-art :is(svg, img) {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.everyday-garment > .btn {
+  font-size: 11px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.everyday-trip {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+  padding: 20px 24px;
+}
+.everyday-trip > div {
+  flex: 1;
+  min-width: 0;
+}
+.everyday-trip strong {
+  overflow-wrap: anywhere;
+}
+.everyday-trip p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+.quick-search .MuiOutlinedInput-root {
+  width: 100%;
+}
+.quick-search-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0;
+}
+.quick-search-kinds .btn {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+.quick-search-kinds [aria-pressed='true'] {
+  background: var(--rose-soft);
+  color: var(--rose-dark);
+}
+.quick-search-results {
+  display: grid;
+  gap: 5px;
+  max-height: 48vh;
+  overflow: auto;
+  margin-bottom: 14px;
+}
+.quick-search-result.MuiButton-root {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  padding: 12px;
+  gap: 12px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  color: var(--ink);
+  text-transform: none;
+}
+.quick-search-result > span:nth-of-type(2) {
+  flex: 1;
+  min-width: 0;
+}
+.quick-search-result strong,
+.quick-search-result small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.quick-search-result strong {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.quick-search-result small {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 3px;
+}
+.quick-search-result.is-active.MuiButton-root {
+  background: var(--rose-soft);
+  border-color: var(--line);
+}
+.quick-search-symbol {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--rose-dark);
+}
+.quick-search-empty {
+  padding: 24px 10px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+}
+.message-search-results {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  max-height: 52vh;
+  overflow: auto;
+}
+.message-search-result {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  min-width: 0;
+}
+.message-search-result > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+.message-search-result time {
+  font-size: 11px;
+  color: var(--muted);
+}
+.message-search-result p {
+  margin: 10px 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.message-search-result a {
+  font-size: 12px;
+  color: var(--rose-dark);
+}
+@media (max-width: 900px) {
+  .everyday-start {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .everyday-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .header-quick-search {
+    display: none !important;
+  }
+  .everyday-start,
+  .everyday-card {
+    padding: 19px;
+  }
+  .everyday-plan {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .everyday-trip {
+    flex-wrap: wrap;
+    padding: 18px;
+  }
+  .everyday-trip > .btn {
+    width: 100%;
+  }
+  .quick-search-result.MuiButton-root {
+    padding: 10px 6px;
+    gap: 8px;
+  }
+}

@@ -11,6 +11,7 @@ import { useSocial } from '@/components/providers/social-provider.jsx';
 import ItemForm from '@/components/forms/item-form.jsx';
 import ThemePicker from '@/components/ui/theme-picker.jsx';
 import QuickSearch from '@/components/layout/quick-search.jsx';
+import SaveIndicator from '@/components/layout/save-indicator.jsx';
 import { Icon, Loading, Modal } from '@/components/ui/ui.jsx';
 
 const navigation = [
@@ -121,9 +122,10 @@ export default function MyClosetShell({ children }) {
   const [adding, setAdding] = useState(false);
   const [more, setMore] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [online, setOnline] = useState(null);
   useEffect(() => {
-    if (!ready) setSearching(false);
+    setAdding(false);
+    setSearching(false);
+    setMore(false);
   }, [ready, ownerId]);
   useEffect(() => {
     const shortcut = (event) => {
@@ -149,16 +151,6 @@ export default function MyClosetShell({ children }) {
         (href === '/settings' && pathname === '/profile') ||
         (href === '/community' && pathname.startsWith('/people/'));
   const current = [...navigation, ...secondary].find((item) => active(item.href));
-  useEffect(() => {
-    const update = () => setOnline(navigator.onLine);
-    update();
-    window.addEventListener('online', update);
-    window.addEventListener('offline', update);
-    return () => {
-      window.removeEventListener('online', update);
-      window.removeEventListener('offline', update);
-    };
-  }, []);
   useEffect(() => {
     setMore(false);
   }, [pathname]);
@@ -205,10 +197,7 @@ export default function MyClosetShell({ children }) {
           </div>
           <div className="sidebar-bottom">
             {secondary.map(navLink)}
-            <div className="local-note">
-              <span className="status-dot" />
-              <span>Сохраняется на этом устройстве</span>
-            </div>
+            <SaveIndicator />
           </div>
         </aside>
         <div className="workspace">
@@ -228,12 +217,7 @@ export default function MyClosetShell({ children }) {
               >
                 <Icon name="search" />
               </AppButton>
-              <span
-                className={`connection-status header-connection${online === false ? ' is-offline' : ''}`}
-                data-platform-status
-              >
-                {online === null ? '' : online ? 'В сети' : 'Без интернета'}
-              </span>
+              <SaveIndicator compact />
               <Link
                 className="icon-btn header-device"
                 href="/devices"
@@ -265,17 +249,11 @@ export default function MyClosetShell({ children }) {
               </div>
               <Link
                 className="header-profile icon-btn"
-                href={
-                  social.profile
-                    ? `/people/${social.profile.username}`
-                    : social.user
-                      ? '/community?tab=profile'
-                      : '/settings'
-                }
-                data-nav={social.user ? 'community' : 'settings'}
-                aria-label={social.user ? 'Открыть мой профиль' : 'Открыть настройки профиля'}
+                href="/account"
+                data-nav="account"
+                aria-label={cloud.user ? 'Открыть мой аккаунт' : 'Войти в аккаунт'}
               >
-                <Icon name={social.user ? 'user' : 'settings'} />
+                <Icon name="user" />
               </Link>
             </div>
           </header>
@@ -361,7 +339,7 @@ export default function MyClosetShell({ children }) {
           </nav>
         </Modal>
       )}
-      {adding && <ItemForm onClose={() => setAdding(false)} />}
+      {adding && ready && <ItemForm key={ownerId || 'guest'} onClose={() => setAdding(false)} />}
       {searching && ready && (
         <QuickSearch key={ownerId || 'guest'} onClose={() => setSearching(false)} />
       )}

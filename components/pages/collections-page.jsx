@@ -86,6 +86,7 @@ function SelectionWarnings({ content }) {
 function CollectionForm({ entry, type, onClose }) {
   const { state, saveCapsule, saveTrip } = useCloset();
   const trip = type === 'trips';
+  const [expectedRecord] = useState(() => entry?.id ? entry : null);
   const [draft, setDraft] = useState(() => ({
     name: '',
     ...(trip
@@ -166,7 +167,7 @@ function CollectionForm({ entry, type, onClose }) {
             }
           : { description: draft.description.trim() }),
       };
-      await (trip ? saveTrip(result) : saveCapsule(result));
+      await (trip ? saveTrip(result, { expectedRecord }) : saveCapsule(result, { expectedRecord }));
       onClose();
     } catch (cause) {
       setError(cause.message || 'Не удалось сохранить коллекцию.');

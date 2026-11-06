@@ -100,3 +100,23 @@ test('unexpected database errors never expose internals or credentials', async (
   assert.equal(response.status, 503);
   assert.ok(!(await response.text()).includes('secret'));
 });
+
+test('media version URLs refresh images without changing the identity used for permission checks', async () => {
+  const calls = [];
+  const api = createSocialHandlers({
+    configured: () => true,
+    getUser: async () => ({ id: 'viewer' }),
+    service: { execute: async (...args) => {
+      calls.push(args);
+      return { photo: 'data:image/png;base64,aGVsbG8=' };
+    } },
+  });
+  const request = (suffix) => new Request('http://localhost:3007/api/social/media?type=avatar&id=owner' + suffix, { headers: { Cookie: 'signed-cookie' } });
+  const response = await api.GET(request('&v=2026-11-06T00%3A00%3A00.000Z'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls[0], ['media.get', { type: 'avatar', id: 'owner' }, { id: 'viewer' }]);
+  assert.match(response.headers.get('Cache-Control'), /private.*no-store/);
+  for (const suffix of ['&v=anything', '&v=2026-02-30T00%3A00%3A00.000Z', '&v=1&v=2'])
+    assert.equal((await api.GET(request(suffix))).status, 400);
+  assert.equal(calls.length, 1);
+});

@@ -197,7 +197,7 @@ test('browser storage retains the existing database/store/key and waits for tran
             queueMicrotask(() => {
               request.result = record;
               request.onsuccess?.();
-              queueMicrotask(() => tx.oncomplete?.());
+              if (mode === 'readonly') queueMicrotask(() => tx.oncomplete?.());
             });
             return request;
           },

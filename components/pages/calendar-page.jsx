@@ -18,6 +18,7 @@ const dateLabel = (value) =>
 
 function PlanForm({ plan, onClose, onSave }) {
   const { state, savePlan } = useCloset();
+  const [expectedRecord] = useState(() => plan.id ? plan : null);
   const [draft, setDraft] = useState(plan);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -46,7 +47,7 @@ function PlanForm({ plan, onClose, onSave }) {
     }
     setSaving(true);
     try {
-      await savePlan(draft);
+      await savePlan(draft, { expectedRecord });
       onSave(draft.date);
       onClose();
     } catch (cause) {

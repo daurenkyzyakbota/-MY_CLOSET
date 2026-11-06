@@ -9,6 +9,7 @@ import { useNarrowSocialScreen, useSocialPoll } from '@/components/social/use-so
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { EmptyState, Field, Icon, Loading, PageHeader } from '@/components/ui/ui.jsx';
 import MessageSearch from '@/components/social/message-search.jsx';
+import { loadMessageBatch, mergeMessages, selectMessageRefresh } from '@/lib/social/message-history.js';
 
 const displayDate = (value, full = false) => {
   const date = new Date(value);
@@ -39,14 +40,6 @@ function PeerAvatar({ peer }) {
   );
 }
 
-function mergeMessages(previous, incoming) {
-  const entries = new Map(previous.map((message) => [message.id, message]));
-  incoming.forEach((message) => entries.set(message.id, message));
-  return [...entries.values()].sort(
-    (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-  );
-}
-
 function MessagesContent() {
   const { user, request, refresh } = useSocial();
   const search = useSearchParams();
@@ -68,6 +61,7 @@ function MessagesContent() {
   const [showList, setShowList] = useState(true);
   const [messages, setMessages] = useState([]);
   const [messagesReady, setMessagesReady] = useState(false);
+  const [readMessageId, setReadMessageId] = useState('');
   const [messageError, setMessageError] = useState('');
   const [before, setBefore] = useState(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -85,6 +79,11 @@ function MessagesContent() {
   const listFlight = useRef(null);
   const listSequence = useRef(0);
   const messageFlight = useRef(null);
+  const messageCursor = useRef(null);
+  const messageEpoch = useRef(0);
+  const messageRefreshOffset = useRef(0);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const sendFlight = useRef(false);
   const sendAttempts = useRef(new Map());
   const logRef = useRef(null);
@@ -117,30 +116,55 @@ function MessagesContent() {
   }, []);
 
   const loadMessages = useCallback(async (conversationId, signal, initial = false) => {
+    const epoch = messageEpoch.current;
     if (
       !conversationId ||
       (messageFlight.current?.conversationId === conversationId &&
+        messageFlight.current.epoch === epoch &&
         !messageFlight.current.signal?.aborted)
     )
       return;
-    const flight = { conversationId, signal };
+    const flight = { conversationId, signal, epoch };
     messageFlight.current = flight;
     const log = logRef.current;
     const nearBottom = !log || log.scrollHeight - log.clientHeight - log.scrollTop < 100;
     try {
-      const result = await requestRef.current('messages.list', { conversationId }, { signal });
-      if (signal?.aborted || activeRef.current !== conversationId) return;
+      const after =
+        !initial && messageCursor.current?.conversationId === conversationId
+          ? messageCursor.current.cursor
+          : undefined;
+      const refresh = after ? selectMessageRefresh(messagesRef.current, messageRefreshOffset.current) : null;
+      const result = await loadMessageBatch(requestRef.current, conversationId, {
+        after,
+        signal,
+        refreshIds: refresh?.ids || [],
+      });
+      if (signal?.aborted || activeRef.current !== conversationId || epoch !== messageEpoch.current)
+        return;
+      messageCursor.current = { conversationId, cursor: result.latestCursor };
+      if (refresh) messageRefreshOffset.current = refresh.nextOffset;
       scrollToBottom.current = initial || nearBottom;
       setMessages((previous) =>
         initial ? result.messages : mergeMessages(previous, result.messages),
       );
-      if (initial) setBefore(result.nextCursor || null);
+      if (result.readThroughId) setReadMessageId(result.readThroughId);
+      if (!after) setBefore(result.nextCursor || null);
       setMessagesReady(true);
       setMessageError('');
     } catch (cause) {
-      if (cause.name !== 'AbortError' && !signal?.aborted && activeRef.current === conversationId) {
+      if (
+        cause.name !== 'AbortError' &&
+        !signal?.aborted &&
+        activeRef.current === conversationId &&
+        epoch === messageEpoch.current
+      ) {
         setMessageError(cause.message || 'Не удалось открыть переписку.');
-        if ([401, 403, 404].includes(cause.status)) setMessages([]);
+        if ([401, 403, 404].includes(cause.status)) {
+          messageCursor.current = null;
+          setMessages([]);
+          setReadMessageId('');
+          setBefore(null);
+        }
         setMessagesReady(true);
       }
     } finally {
@@ -195,8 +219,13 @@ function MessagesContent() {
 
   useEffect(() => {
     const controller = new AbortController();
+    messageEpoch.current++;
+    messageCursor.current = null;
+    messageRefreshOffset.current = 0;
+    messagesRef.current = [];
     setMessages([]);
     setMessagesReady(false);
+    setReadMessageId('');
     setMessageError('');
     setSendError('');
     setBefore(null);
@@ -253,7 +282,8 @@ function MessagesContent() {
   useEffect(() => {
     if (!chatVisible || !messagesReady || !messages.length || messageError) return;
     if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
-    const last = messages[messages.length - 1];
+    const last = messages.find((message) => message.id === readMessageId);
+    if (!last) return;
     if (readThrough.current.get(activeId) === last.id) return;
     if (!messages.some((message) => message.senderId !== user.id)) return;
     const controller = new AbortController();
@@ -277,26 +307,31 @@ function MessagesContent() {
         /* The next visible poll retries read-through. */
       });
     return () => controller.abort();
-  }, [activeId, chatVisible, messages, messagesReady, messageError, user.id]);
+  }, [activeId, chatVisible, messages, messagesReady, messageError, readMessageId, user.id]);
 
   async function olderMessages() {
     if (!before || loadingOlder || !activeId) return;
     const conversationId = activeId;
+    const epoch = messageEpoch.current;
     setLoadingOlder(true);
     setMessageError('');
     try {
       const result = await requestRef.current('messages.list', { conversationId, before });
-      if (activeRef.current !== conversationId) return;
+      if (activeRef.current !== conversationId || epoch !== messageEpoch.current) return;
       const log = logRef.current;
       if (log) restoreScroll.current = { height: log.scrollHeight, top: log.scrollTop };
       scrollToBottom.current = false;
       setMessages((previous) => mergeMessages(previous, result.messages));
       setBefore(result.nextCursor || null);
     } catch (cause) {
-      if (activeRef.current === conversationId && cause.name !== 'AbortError')
+      if (
+        activeRef.current === conversationId &&
+        epoch === messageEpoch.current &&
+        cause.name !== 'AbortError'
+      )
         setMessageError(cause.message || 'Не удалось загрузить ранние сообщения.');
     } finally {
-      if (activeRef.current === conversationId) setLoadingOlder(false);
+      if (activeRef.current === conversationId && epoch === messageEpoch.current) setLoadingOlder(false);
     }
   }
 

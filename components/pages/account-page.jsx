@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { useCloudSync } from '@/components/providers/cloud-sync-provider.jsx';
-import { wardrobeSummary } from '@/lib/cloud/cloud-sync-client.js';
+import { accountCloudSetup, wardrobeSummary } from '@/lib/cloud/cloud-sync-client.js';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { Field, Icon, Loading, Modal, PageHeader } from '@/components/ui/ui.jsx';
 import AccountSocialPanel from '@/components/social/account-social-panel.jsx';
+import AccountDetails from '@/components/account/account-details.jsx';
 
 const statuses = {
   disconnected: 'Синхронизация отключена',
@@ -57,6 +58,12 @@ export default function AccountPage() {
     setRepeatPassword('');
     setShowPassword(false);
   }, [mode]);
+  useEffect(() => {
+    setConfirmation(null);
+    setConfirmError('');
+    setPassword('');
+    setRepeatPassword('');
+  }, [cloud.user?.id]);
   const busy = working || cloud.busy;
   function switchMode(value) {
     setMode(value);
@@ -138,6 +145,8 @@ export default function AccountPage() {
     setConfirmError('');
     setConfirmation({
       kind,
+      userId: cloud.user?.id,
+      snapshot: closet.state,
       revision: cloud.remote.revision,
       local: wardrobeSummary(closet.state),
       remote: wardrobeSummary(cloud.remote.snapshot),
@@ -148,8 +157,9 @@ export default function AccountPage() {
     setWorking(true);
     setConfirmError('');
     try {
-      if (confirmation.kind === 'local') await cloud.connectLocal(confirmation.revision);
-      else await cloud.connectCloud(confirmation.revision);
+      if (confirmation.kind === 'local')
+        await cloud.connectLocal(confirmation.revision, confirmation);
+      else await cloud.connectCloud(confirmation.revision, confirmation);
       setConfirmation(null);
     } catch (cause) {
       if (cause.name !== 'AbortError')
@@ -159,14 +169,32 @@ export default function AccountPage() {
     }
   }
 
+  async function connectAccount(kind) {
+    if (busy || !cloud.remote) return;
+    const setup = accountCloudSetup(closet.state, cloud.remote);
+    if ((kind === 'cloud' && setup !== 'open') || (kind === 'local' && setup !== 'create')) {
+      confirm(kind);
+      return;
+    }
+    const choice = {
+      userId: cloud.user?.id,
+      snapshot: closet.state,
+      revision: cloud.remote.revision,
+    };
+    await action(() => kind === 'cloud'
+      ? cloud.connectCloud(choice.revision, choice)
+      : cloud.connectLocal(choice.revision, choice));
+  }
+
   if (!closet.ready || cloud.configured === null || cloud.sessionLoading) return <Loading />;
   const signedIn = cloud.user && !cloud.requiresHttps && !['verify', 'reset'].includes(mode);
+  const setup = accountCloudSetup(closet.state, cloud.remote);
 
   return (
     <section className="account-page">
       <PageHeader
         title="Мой аккаунт"
-        description="Один гардероб на ваших устройствах. Вы сами решаете, когда подключить облако."
+        description="Ваши вещи, фотографии, образы и общение — в одном аккаунте на ваших устройствах."
       />
       {cloud.requiresHttps && (
         <section className="settings-card account-https-notice" role="note">
@@ -191,10 +219,16 @@ export default function AccountPage() {
           <Icon name="cloud" size={32} />
           <h2>Облако пока недоступно</h2>
           <p>
-            Этот сервер ещё не подключён к сервису аккаунтов. Гардероб и все изменения продолжают
-            сохраняться на этом устройстве.
+            {cloud.configError
+              ? 'Не удалось проверить подключение к сервису аккаунтов. Повторите проверку, когда появится сеть.'
+              : 'Этот сервер ещё не подключён к сервису аккаунтов.'}{' '}
+            Гардероб и все изменения продолжают сохраняться на этом устройстве.
           </p>
           {cloud.configError && <p className="footnote">{cloud.configError}</p>}
+          <AppButton className="btn btn-primary" onClick={cloud.refreshConfiguration} disabled={!cloud.online}>
+            <Icon name="refresh" />
+            Проверить подключение
+          </AppButton>
           <AppButton className="btn btn-secondary" onClick={closet.exportBackup}>
             <Icon name="download" />
             Скачать резервную копию
@@ -202,6 +236,7 @@ export default function AccountPage() {
         </div>
       ) : signedIn ? (
         <>
+          <AccountDetails />
           <AccountSocialPanel />
           <div className="row g-4 account-layout">
             <div className="col-12 col-xl-5">
@@ -221,32 +256,33 @@ export default function AccountPage() {
                   role="status"
                   aria-live="polite"
                   data-cloud-status={cloud.status}
+                  data-save-status={cloud.saveStatus}
                 >
                   <Icon
                     name={
-                      cloud.status === 'ready'
+                      cloud.saveStatus === 'saved'
                         ? 'check'
                         : cloud.status === 'conflict'
                           ? 'warning'
                           : 'cloud'
                     }
                   />
-                  <span>{statuses[cloud.status] || statuses.disconnected}</span>
+                  <span>{cloud.saveMessage || statuses[cloud.status] || statuses.disconnected}</span>
                 </div>
                 {cloud.connected ? (
                   <p className="footnote">
-                    Изменения сначала сохраняются здесь, затем передаются в облако. Другие
-                    устройства проверяются каждые 30 секунд, пока вкладка открыта.
+                    Вещи, фотографии и настройки гардероба сохраняются в аккаунте автоматически.
+                    Войдите с той же почтой на другом устройстве и нажмите «Открыть мой гардероб».
                   </p>
                 ) : (
                   <p>
-                    Вход не отправляет ваши вещи и фотографии в облако. Сначала выберите, какой
-                    гардероб использовать.
+                    Включите сохранение ниже, чтобы ваши вещи и фотографии открывались с этой
+                    почтой на другом компьютере или телефоне.
                   </p>
                 )}
                 {cloud.remote?.updatedAt && (
                   <p className="footnote">
-                    Облачная копия: {new Date(cloud.remote.updatedAt).toLocaleString('ru-RU')}
+                    Последнее сохранение: {new Date(cloud.remote.updatedAt).toLocaleString('ru-RU')}
                   </p>
                 )}
                 {cloud.error && (
@@ -295,7 +331,7 @@ export default function AccountPage() {
                     onClick={() => action(cloud.refreshRemote)}
                   >
                     <Icon name="refresh" />
-                    Проверить облачную копию
+                    Обновить данные аккаунта
                   </AppButton>
                   {cloud.connected && (
                     <AppButton className="btn btn-ghost" disabled={busy} onClick={cloud.disconnect}>
@@ -323,8 +359,8 @@ export default function AccountPage() {
                     {cloud.status === 'conflict'
                       ? 'Какой гардероб сохранить?'
                       : cloud.connected
-                        ? 'Ваши копии гардероба'
-                        : 'Подключите свой гардероб'}
+                        ? 'Сохранение в аккаунте включено'
+                        : 'Гардероб на всех устройствах'}
                   </h2>
                 </div>
                 {cloud.status === 'conflict' && (
@@ -333,6 +369,53 @@ export default function AccountPage() {
                     Перед выбором скачайте резервную копию этого устройства.
                   </p>
                 )}
+                {!cloud.connected && cloud.status !== 'conflict' && ['create', 'open'].includes(setup) && (
+                  <div className="account-connect-actions">
+                    <p>
+                      {setup === 'open'
+                        ? 'В вашем аккаунте уже есть гардероб. Откройте его на этом устройстве: последующие изменения будут сохраняться автоматически.'
+                        : 'Разрешите сохранять в аккаунте вещи, фотографии, образы, покупки, планы и настройки гардероба. После подключения изменения будут сохраняться автоматически.'}
+                    </p>
+                    {setup === 'open' && <p>{wardrobeSummary(cloud.remote.snapshot)}</p>}
+                    <AppButton
+                      className="btn btn-primary"
+                      data-account-storage-setup={setup}
+                      disabled={busy || !cloud.online}
+                      onClick={() => connectAccount(setup === 'open' ? 'cloud' : 'local')}
+                    >
+                      <Icon name={setup === 'open' ? 'download' : 'cloud'} />
+                      {setup === 'open' ? 'Открыть мой гардероб' : 'Сохранять гардероб в аккаунте'}
+                    </AppButton>
+                  </div>
+                )}
+                {!cloud.connected && setup === 'loading' && (
+                  <p role="status">
+                    {cloud.busy ? 'Открываем данные вашего аккаунта…' : 'Обновите данные аккаунта, чтобы подключить сохранение.'}
+                  </p>
+                )}
+                {cloud.connected && cloud.status !== 'conflict' && (
+                  <>
+                    <p>Добавляйте вещи и собирайте образы. Сохранение уже включено на этом устройстве.</p>
+                    <div className="account-actions">
+                      <Link className="btn btn-primary" href="/wardrobe">Открыть гардероб</Link>
+                      <AppButton className="btn btn-secondary" onClick={closet.exportBackup}>
+                        Скачать резервную копию
+                      </AppButton>
+                    </div>
+                  </>
+                )}
+                <details open={(!cloud.connected && setup === 'choose') || cloud.status === 'conflict'}>
+                  <summary>
+                    {cloud.status === 'conflict' || (!cloud.connected && setup === 'choose')
+                      ? 'Выберите данные для сохранения'
+                      : 'Резервные копии и выбор данных'}
+                  </summary>
+                  {!cloud.connected && setup === 'choose' && (
+                    <p>
+                      На этом устройстве и в аккаунте уже есть данные. Проверьте их состав и
+                      подтвердите, какой гардероб использовать. Перед заменой можно скачать копию.
+                    </p>
+                  )}
                 <div className="account-copies">
                   <section className="account-copy">
                     <Icon name="monitor" />
@@ -351,7 +434,7 @@ export default function AccountPage() {
                         ? wardrobeSummary(cloud.remote.snapshot)
                         : cloud.busy
                           ? 'Проверяем облачную копию…'
-                          : 'Нажмите «Проверить облачную копию».'}
+                          : 'Нажмите «Обновить данные аккаунта».'}
                     </p>
                     {cloud.remote && <span className="tag">Версия {cloud.remote.revision}</span>}
                   </section>
@@ -386,6 +469,7 @@ export default function AccountPage() {
                     носки, капсулы и поездки. Тема и фильтры списков остаются настройками браузера.
                   </p>
                 )}
+                </details>
               </section>
             </div>
           </div>
@@ -642,7 +726,7 @@ export default function AccountPage() {
           {success}
         </p>
       )}
-      {confirmation && (
+      {confirmation && confirmation.userId === cloud.user?.id && (
         <Modal
           title={
             confirmation.kind === 'local'

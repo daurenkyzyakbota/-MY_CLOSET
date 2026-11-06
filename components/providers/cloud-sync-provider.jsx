@@ -2,6 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
+import { refreshCurrentConflict, switchOwnerAfterSync } from '@/lib/cloud/cloud-job-guards.js';
+import { createCloudConfigurationReader } from '@/lib/cloud/cloud-configuration.js';
 import {
   CLOUD_CONNECTION_PREFIX,
   CLOUD_OWNER_KEY,
@@ -15,6 +17,8 @@ import {
   writeCloudConnection,
   authErrorMessage,
   cloudRequiresHttps,
+  assertCloudChoice,
+  cloudSaveStatus,
 } from '@/lib/cloud/cloud-sync-client.js';
 
 const CloudSyncContext = createContext(null);
@@ -52,15 +56,17 @@ async function checkedAuth(operation) {
 export function CloudSyncProvider({ children }) {
   const closet = useCloset();
   const authClientRef = useRef(null);
+  const configurationReader = useRef(null);
   const sessionRequest = useRef(0);
   const [session, setSession] = useState({ data: null, isPending: true, error: null });
+  const [hashedView, setHashedView] = useState(null);
   const refetchSession = useCallback(async () => {
     if (cloudRequiresHttps(window.location, window.isSecureContext)) return null;
     const request = ++sessionRequest.current;
     try {
       // A direct same-origin read avoids the SDK's 60-second browser cache when
       // another tab changes the HTTP-only session cookie.
-      const response = await fetch('/api/auth/get-session', {
+      const response = await fetch('/api/auth/get-session?disableCookieCache=true', {
         credentials: 'same-origin',
         cache: 'no-store',
         signal: AbortSignal.timeout(20000),
@@ -97,6 +103,20 @@ export function CloudSyncProvider({ children }) {
   const [remembered, setRemembered] = useState(true);
   const [online, setOnline] = useState(true);
   const [requiresHttps, setRequiresHttps] = useState(false);
+
+  useEffect(() => {
+    if (!closet.ready || !userId || closet.ownerId !== userId) return;
+    let alive = true;
+    const snapshot = closet.state;
+    void hashSnapshot(snapshot)
+      .then((hash) => {
+        if (alive) setHashedView({ userId, snapshot, hash });
+      })
+      .catch(() => {
+        if (alive) setHashedView(null);
+      });
+    return () => { alive = false; };
+  }, [closet.ready, closet.ownerId, closet.state, userId]);
 
   const changeStatus = useCallback((value, message = '') => {
     statusRef.current = value;
@@ -155,27 +175,41 @@ export function CloudSyncProvider({ children }) {
           if (alive) setSession({ data: null, isPending: false, error: cause });
         });
     }
-    const controller = new AbortController();
-    fetchCloudStatus({ signal: controller.signal })
-      .then((result) => setConfigured(result.configured))
-      .catch((cause) => {
-        if (cause.name !== 'AbortError') {
-          setConfigured(false);
-          setConfigError(cause.message);
-        }
-      });
+    let configurationAvailable = false;
+    const configuration = createCloudConfigurationReader({
+      fetchStatus: fetchCloudStatus,
+      onResult: (result) => {
+        configurationAvailable = result.configured;
+        setConfigured(result.configured);
+        setConfigError('');
+      },
+      onError: (cause) => {
+        configurationAvailable = false;
+        setConfigured(false);
+        setConfigError(cause.message);
+      },
+    });
+    configurationReader.current = configuration;
+    void configuration.check();
     const updateOnline = () => setOnline(navigator.onLine);
+    const retryConfiguration = () => {
+      updateOnline();
+      if (navigator.onLine && !configurationAvailable) void configuration.check();
+    };
     updateOnline();
-    window.addEventListener('online', updateOnline);
+    window.addEventListener('online', retryConfiguration);
     window.addEventListener('offline', updateOnline);
+    window.addEventListener('focus', retryConfiguration);
     return () => {
       alive = false;
       sessionRequest.current += 1;
-      controller.abort();
+      configuration.close();
+      if (configurationReader.current === configuration) configurationReader.current = null;
       generation.current += 1;
       flight.current?.controller.abort();
-      window.removeEventListener('online', updateOnline);
+      window.removeEventListener('online', retryConfiguration);
       window.removeEventListener('offline', updateOnline);
+      window.removeEventListener('focus', retryConfiguration);
     };
   }, [refetchSession]);
 
@@ -253,14 +287,12 @@ export function CloudSyncProvider({ children }) {
             stop(cause.message);
             void latest.current.refetchSession();
           } else if (cause.status === 409) {
-            try {
-              const fresh = await fetchCloudWardrobe(context.options);
-              assertCurrent();
-              showRemote(fresh);
-            } catch {
-              /* Keep the previous verified cloud snapshot available. */
-            }
-            changeStatus('conflict', cause.message);
+            await refreshCurrentConflict({
+              readRemote: () => fetchCloudWardrobe(context.options),
+              assertCurrent,
+              showRemote,
+              showConflict: () => changeStatus('conflict', cause.message),
+            });
           } else
             changeStatus(
               navigator.onLine ? 'error' : 'offline',
@@ -317,15 +349,19 @@ export function CloudSyncProvider({ children }) {
   }, []);
 
   const connectLocal = useCallback(
-    (expectedRevision) =>
+    (expectedRevision, choice) =>
       runJob(async (context) => {
+        const snapshot = latest.current.closet.state;
+        await assertCloudChoice(choice, context.id, snapshot);
+        context.assertCurrent();
         const current = await fetchRemote(context);
         if (current.revision !== expectedRevision)
           throw new CloudSyncError(
             'Облачная копия изменилась после подтверждения. Проверьте её состав и повторите выбор.',
             409,
           );
-        const snapshot = latest.current.closet.state;
+        await assertCloudChoice(choice, context.id, latest.current.closet.state);
+        context.assertCurrent();
         const saved = await uploadCloudWardrobe(snapshot, current.revision, context.options);
         context.assertCurrent();
         commitConnection(saved, context.id);
@@ -336,15 +372,16 @@ export function CloudSyncProvider({ children }) {
   );
 
   const connectCloud = useCallback(
-    (expectedRevision) =>
+    (expectedRevision, choice) =>
       runJob(async (context) => {
+        const hash = await assertCloudChoice(choice, context.id, latest.current.closet.state);
+        context.assertCurrent();
         const current = await fetchRemote(context);
         if (current.revision !== expectedRevision)
           throw new CloudSyncError(
             'Облачная копия изменилась после подтверждения. Проверьте её состав и повторите выбор.',
             409,
           );
-        const hash = await hashSnapshot(latest.current.closet.state);
         await applyRemote(current, hash, context);
         commitConnection(current, context.id);
         latest.current.closet.notify('Облачный гардероб открыт на этом устройстве.');
@@ -383,11 +420,17 @@ export function CloudSyncProvider({ children }) {
 
   useEffect(() => {
     if (authSession.isPending || closet.ownerId === userId) return;
+    let active = true;
     const pending = stop();
-    void Promise.resolve(pending)
-      .catch(() => {})
-      .then(() => closet.switchOwner(userId));
-  }, [authSession.isPending, userId, closet.ownerId, closet.switchOwner, stop]);
+    void switchOwnerAfterSync(pending, userId, {
+      isCurrent: () => active && latest.current.userId === userId,
+      switchOwner: (id) => latest.current.closet.switchOwner(id),
+    }).catch(() => {
+      if (active && latest.current.userId === userId)
+        changeStatus('error', 'Не удалось открыть гардероб аккаунта. Обновите страницу.');
+    });
+    return () => { active = false; };
+  }, [authSession.isPending, userId, closet.ownerId, closet.switchOwner, stop, changeStatus]);
 
   useEffect(() => {
     if (!closet.ready || authSession.isPending || configured !== true) return;
@@ -467,8 +510,10 @@ export function CloudSyncProvider({ children }) {
         navigator.onLine &&
         !cloudRequiresHttps(window.location, window.isSecureContext)
       ) {
-        void refetchSession().then(() => {
-          if (connectionRef.current) void syncNow().catch(() => {});
+        const expectedOwner = latest.current.userId;
+        void refetchSession().then((data) => {
+          if (data?.user?.id === expectedOwner && connectionRef.current)
+            void syncNow().catch(() => {});
         });
       }
     };
@@ -519,6 +564,10 @@ export function CloudSyncProvider({ children }) {
     forget(latest.current.userId);
     await pending?.catch(() => {});
     await checkedAuth(auth().signOut());
+    // A successful sign-out must hide the old account even if the subsequent
+    // session refresh fails because the network disappears at this point.
+    sessionRequest.current += 1;
+    setSession({ data: null, isPending: false, error: null });
     await authSession.refetch();
   }
   async function requestPasswordReset(email) {
@@ -538,18 +587,36 @@ export function CloudSyncProvider({ children }) {
     await authSession.refetch();
   }
 
+  const scopedConnection = connection?.userId === userId ? connection : null;
+  const currentHash =
+    hashedView?.userId === userId && hashedView.snapshot === closet.state ? hashedView.hash : '';
+  const saveStatus = userId
+    ? cloudSaveStatus(scopedConnection, status, currentHash, { online, busy })
+    : 'local';
+  const saveMessage = {
+    local: closet.storageMode === 'memory' ? 'Сохранено до закрытия страницы' : 'Сохранено на устройстве',
+    disconnected: 'Включить сохранение',
+    saving: 'Сохраняем…',
+    saved: 'Сохранено в аккаунте',
+    offline: 'Без сети · на устройстве',
+    error: 'Не сохранено в аккаунте',
+    conflict: 'Нужно выбрать гардероб',
+  }[saveStatus];
+
   return (
     <CloudSyncContext.Provider
       value={{
         user,
+        saveStatus,
+        saveMessage,
         sessionLoading: authSession.isPending,
         authError: authSession.error
           ? 'Не удалось проверить вход в аккаунт. Проверьте подключение и повторите попытку.'
           : '',
         configured,
         configError,
-        connection,
-        connected: !!connection?.connected,
+        connection: scopedConnection,
+        connected: !!scopedConnection?.connected,
         remote,
         status: online ? status : connection ? 'offline' : status,
         error,
@@ -565,6 +632,7 @@ export function CloudSyncProvider({ children }) {
         sendVerificationCode,
         verifyEmailCode,
         refreshSession: () => authSession.refetch(),
+        refreshConfiguration: () => configurationReader.current?.check(),
         refreshRemote,
         connectLocal,
         connectCloud,

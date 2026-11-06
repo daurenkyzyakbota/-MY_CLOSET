@@ -14,6 +14,9 @@ const normalize = (value) =>
 
 export function ShoppingForm({ entry, onClose }) {
   const { state, saveShopping } = useCloset();
+  const [expectedRecord] = useState(() =>
+    state.shoppingList.some((record) => record.id === entry?.id) ? entry : null,
+  );
   const [draft, setDraft] = useState(() => ({
     name: '',
     category: 'top',
@@ -73,7 +76,7 @@ export function ShoppingForm({ entry, onClose }) {
     }
     setSaving(true);
     try {
-      await saveShopping(saved);
+      await saveShopping(saved, { expectedRecord });
       onClose();
     } catch (cause) {
       setError(cause.message || 'Не удалось сохранить желание.');

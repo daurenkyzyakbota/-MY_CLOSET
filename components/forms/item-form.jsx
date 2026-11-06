@@ -36,7 +36,10 @@ const blankItem = {
 };
 
 export default function ItemForm({ item, onClose }) {
-  const { saveItem, removeItem } = useCloset();
+  const { state, saveItem, removeItem } = useCloset();
+  const [expectedRecord] = useState(() =>
+    state.items.some((record) => record.id === item?.id) ? item : null,
+  );
   const [draft, setDraft] = useState(() => ({
     ...blankItem,
     ...item,
@@ -100,15 +103,18 @@ export default function ItemForm({ item, onClose }) {
     }
     setSaving(true);
     try {
-      await saveItem({
-        ...draft,
-        name: draft.name.trim(),
-        size: draft.size.trim(),
-        style: draft.style.trim(),
-        brand: draft.brand.trim(),
-        material: draft.material.trim(),
-        notes: draft.notes.trim(),
-      });
+      await saveItem(
+        {
+          ...draft,
+          name: draft.name.trim(),
+          size: draft.size.trim(),
+          style: draft.style.trim(),
+          brand: draft.brand.trim(),
+          material: draft.material.trim(),
+          notes: draft.notes.trim(),
+        },
+        { expectedRecord },
+      );
       onClose();
     } catch (cause) {
       setError(cause.message || 'Вещь не сохранена. Попробуйте ещё раз.');

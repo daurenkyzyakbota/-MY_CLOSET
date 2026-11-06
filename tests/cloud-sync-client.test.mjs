@@ -3,11 +3,17 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { emptyState, demoState } from '../lib/data/model.js';
 import {
+  createEmailDomainValidator,
+  normalizeEmailAddress,
+  validateRegistrationInput,
+} from '../lib/cloud/email-validation.js';
+import {
   canonicalSnapshotJson,
   hashSnapshot,
   planCloudSync,
   authErrorMessage,
   cloudRequiresHttps,
+  assertCloudChoice,
   CLOUD_OWNER_KEY,
   CLOUD_CONNECTION_PREFIX,
   readCloudConnection,
@@ -16,6 +22,9 @@ import {
   fetchCloudWardrobe,
   uploadCloudWardrobe,
   wardrobeSummary,
+  wardrobeHasContent,
+  accountCloudSetup,
+  cloudSaveStatus,
 } from '../lib/cloud/cloud-sync-client.js';
 
 const updatedAt = '2026-10-30T12:00:00.000Z';
@@ -241,6 +250,24 @@ test('authentication loss, account changes, CAS conflicts and network failures s
   );
 });
 
+test('malformed JSON envelopes preserve authorization errors instead of losing HTTP status to a TypeError', async () => {
+  for (const value of [null, [], 'unexpected', 42]) {
+    await assert.rejects(
+      fetchCloudWardrobe({ fetcher: async () => response(value, 401) }),
+      (error) => error.name === 'CloudSyncError' && error.status === 401 && /Войдите/.test(error.message),
+    );
+    for (const operation of [fetchCloudStatus, fetchCloudWardrobe])
+      await assert.rejects(
+        operation({ fetcher: async () => response(value) }),
+        (error) => error.name === 'CloudSyncError' && error.code === 'INVALID_RESPONSE',
+      );
+  }
+  await assert.rejects(
+    uploadCloudWardrobe(emptyState(), 0, { fetcher: async () => response(null) }),
+    (error) => error.name === 'CloudSyncError' && error.code === 'INVALID_RESPONSE',
+  );
+});
+
 test('configuration and consent summaries describe every persisted collection without fake counts', async () => {
   assert.deepEqual(
     await fetchCloudStatus({ fetcher: async () => response({ configured: true }) }),
@@ -270,6 +297,39 @@ test('real Neon normalized auth codes and upstream Better Auth codes receive the
   assert.match(authErrorMessage({ code: 'INVALID_OTP' }), /Неверный код/);
 });
 
+test('signup validation reasons survive SDK normalization while unknown internals remain hidden', async () => {
+  const failures = [];
+  for (const operation of [
+    () => normalizeEmailAddress('not-an-email'),
+    () => normalizeEmailAddress('person@example.com'),
+    () => validateRegistrationInput({ email: 'person@gmail.com', name: '', password: 'password123' }),
+  ]) {
+    try { operation(); } catch (error) { failures.push(error); }
+  }
+  for (const resolveMx of [
+    async () => { throw Object.assign(new Error('Internal DNS path'), { code: 'ENOTFOUND' }); },
+    async () => [{ exchange: '.', priority: 0 }],
+    async () => { throw Object.assign(new Error('Internal DNS timeout'), { code: 'ETIMEOUT' }); },
+  ]) {
+    const validateDomain = createEmailDomainValidator({ resolveMx });
+    try { await validateDomain('mail-provider.com'); } catch (error) { failures.push(error); }
+  }
+  assert.equal(failures.length, 6);
+  assert.deepEqual(new Set(failures.map((error) => error.code)), new Set([
+    'INVALID_EMAIL', 'RESERVED_EMAIL_DOMAIN', 'INVALID_NAME',
+    'EMAIL_DOMAIN_NOT_FOUND', 'EMAIL_DOMAIN_NO_MAIL', 'EMAIL_DNS_UNAVAILABLE',
+  ]));
+  for (const failure of failures) {
+    assert.equal(authErrorMessage(failure), failure.message);
+    assert.equal(authErrorMessage({ code: 'validation_failed', message: failure.message }), failure.message);
+    assert.equal(authErrorMessage({ code: 'feature_not_supported', message: failure.message }), failure.message);
+  }
+  const internal = 'Postgres password=private-value at internal-host';
+  assert.equal(authErrorMessage({ code: 'validation_failed', message: internal }).includes(internal), false);
+  assert.equal(authErrorMessage({ code: 'EMAIL_DOMAIN_NOT_FOUND', message: internal }).includes(internal), false);
+  assert.equal(authErrorMessage({ code: 'constructor', message: internal }).includes(internal), false);
+});
+
 test('LAN HTTP clearly requires HTTPS while localhost development and genuine HTTPS remain enabled', () => {
   assert.equal(cloudRequiresHttps(new URL('http://192.168.10.3:3007/account'), false), true);
   assert.equal(cloudRequiresHttps(new URL('http://wardrobe.local/account'), false), true);
@@ -282,4 +342,97 @@ test('LAN HTTP clearly requires HTTPS while localhost development and genuine HT
     assert.equal(cloudRequiresHttps(new URL(url), false), false);
   assert.equal(cloudRequiresHttps(new URL('https://mycloset.example/account'), true), false);
   assert.equal(cloudRequiresHttps(new URL('http://192.168.10.3:3007/account'), true), false);
+});
+
+test('cloud replacement consent rejects another account and changed local data, including photos', async () => {
+  const snapshot = demoState();
+  const choice = { userId: 'user-a', snapshot: structuredClone(snapshot) };
+  const expectedHash = await hashSnapshot(snapshot);
+  assert.equal(await assertCloudChoice(choice, 'user-a', snapshot), expectedHash);
+  for (const userId of ['', 'user-b'])
+    await assert.rejects(
+      assertCloudChoice(choice, userId, snapshot),
+      (error) => error.code === 'ACCOUNT_CHANGED' && error.status === 409,
+    );
+  await assert.rejects(
+    assertCloudChoice(null, 'user-a', snapshot),
+    (error) => error.code === 'ACCOUNT_CHANGED',
+  );
+  for (const change of [
+    (state) => {
+      state.profile.name = 'Изменённое имя';
+    },
+    (state) => {
+      state.items[0].notes = 'Изменено после подтверждения';
+    },
+    (state) => {
+      state.items[0].photo = 'data:image/png;base64,YWJj';
+    },
+    (state) => {
+      state.outfits = [];
+    },
+  ]) {
+    const changed = structuredClone(snapshot);
+    change(changed);
+    await assert.rejects(
+      assertCloudChoice(choice, 'user-a', changed),
+      (error) => error.code === 'LOCAL_CHANGED' && /подтверждения/.test(error.message),
+    );
+  }
+  assert.deepEqual(choice.snapshot, snapshot);
+});
+
+test('first account setup opens a remote wardrobe in one action but never treats profile-only local data as disposable', () => {
+  const remote = cloud({ snapshot: demoState() });
+  assert.equal(accountCloudSetup(emptyState(), null), 'loading');
+  assert.equal(accountCloudSetup(demoState(), { snapshot: null, revision: 0 }), 'create');
+  assert.equal(accountCloudSetup(emptyState(), remote), 'open');
+  assert.equal(accountCloudSetup(demoState(), remote), 'choose');
+  assert.equal(wardrobeHasContent(emptyState()), false);
+  for (const [field, value] of [
+    ['name', 'Бота'], ['city', 'Алматы'], ['styles', 'casual'],
+    ['colors', ['white']], ['location', { latitude: 0, longitude: 0 }],
+  ]) {
+    const local = emptyState();
+    local.profile[field] = value;
+    assert.equal(wardrobeHasContent(local), true, field);
+    assert.equal(accountCloudSetup(local, remote), 'choose', field);
+  }
+  for (const collection of ['items', 'outfits', 'plans', 'shoppingList', 'wearLog', 'capsules', 'trips']) {
+    const local = emptyState();
+    local[collection] = [{ id: 'record' }];
+    assert.equal(accountCloudSetup(local, remote), 'choose', collection);
+  }
+});
+
+test('save indicator remains pending through debounce, upload and edits during a request, and reports failure honestly', () => {
+  const saved = { ...base, lastHash: hash('a') };
+  assert.equal(cloudSaveStatus(null, 'ready', hash('a')), 'disconnected');
+  assert.equal(cloudSaveStatus(saved, 'ready', ''), 'saving');
+  assert.equal(cloudSaveStatus(saved, 'ready', hash('b')), 'saving');
+  assert.equal(cloudSaveStatus(saved, 'syncing', hash('a')), 'saving');
+  assert.equal(cloudSaveStatus(saved, 'ready', hash('a'), { busy: true }), 'saving');
+  const uploaded = { ...saved, lastHash: hash('b') };
+  assert.equal(cloudSaveStatus(uploaded, 'ready', hash('c')), 'saving');
+  assert.equal(cloudSaveStatus(uploaded, 'ready', hash('b')), 'saved');
+  assert.equal(cloudSaveStatus(uploaded, 'ready', hash('c'), { online: false }), 'offline');
+  assert.equal(cloudSaveStatus(uploaded, 'error', hash('b')), 'error');
+  assert.equal(cloudSaveStatus(uploaded, 'conflict', hash('c')), 'conflict');
+});
+
+test('a service 503 keeps an honest message after the SDK normalizes it as an unsupported feature', () => {
+  const message = 'Не удалось проверить аккаунт. Проверьте подключение и повторите попытку.';
+  for (const error of [
+    { code: 'AUTH_UNAVAILABLE', status: 503, message },
+    { code: 'feature_not_supported', status: 403, message },
+  ]) {
+    assert.equal(
+      authErrorMessage(error),
+      'Сервис аккаунтов временно недоступен. Повторите попытку позже.',
+    );
+  }
+  assert.equal(
+    authErrorMessage({ code: 'feature_not_supported', message: 'Private infrastructure details' }),
+    'Это действие пока недоступно в сервисе аккаунтов.',
+  );
 });

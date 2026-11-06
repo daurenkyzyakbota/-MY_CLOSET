@@ -12,6 +12,9 @@ import { ShoppingForm } from '@/components/forms/shopping-form.jsx';
 
 export default function OutfitForm({ outfit, onClose }) {
   const { state, saveOutfit, removeOutfit } = useCloset();
+  const [expectedRecord] = useState(() =>
+    state.outfits.some((record) => record.id === outfit?.id) ? outfit : null,
+  );
   const [draft, setDraft] = useState(() => ({
     name: '',
     occasion: 'everyday',
@@ -136,13 +139,16 @@ export default function OutfitForm({ outfit, onClose }) {
     }
     setSaving(true);
     try {
-      await saveOutfit({
-        ...draft,
-        name: draft.name.trim(),
-        description: draft.description.trim(),
-        itemIds: uniqueIds,
-        missingItems,
-      });
+      await saveOutfit(
+        {
+          ...draft,
+          name: draft.name.trim(),
+          description: draft.description.trim(),
+          itemIds: uniqueIds,
+          missingItems,
+        },
+        { expectedRecord },
+      );
       onClose();
     } catch (cause) {
       setError(cause.message || 'Образ не сохранён. Попробуйте ещё раз.');

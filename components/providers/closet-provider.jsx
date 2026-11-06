@@ -36,6 +36,7 @@ import {
 } from '@/lib/data/wardrobe-life.js';
 import { applyWeekPlans } from '@/lib/styling/week-plan-save.js';
 import { applyItemBatch } from '@/lib/data/item-actions.js';
+import { assertRecordUnchanged } from '@/lib/data/record-edits.js';
 
 const ClosetContext = createContext(null);
 export function ClosetProvider({ children }) {
@@ -145,7 +146,22 @@ export function ClosetProvider({ children }) {
     async (updater, message = '') => {
       const controller = controllerRef.current;
       if (!controller) throw new Error('Подождите, открываем гардероб.');
-      const next = await controller.update(updater);
+      const assertScope = () => {
+        if (
+          ownerRef.current !== view.ownerId ||
+          requestedOwner.current !== view.ownerId ||
+          controllerRef.current !== controller
+        )
+          throw new DOMException('Аккаунт изменился. Откройте форму заново.', 'AbortError');
+      };
+      assertScope();
+      const next = await controller.update(async (draft) => {
+        assertScope();
+        const result = typeof updater === 'function' ? await updater(draft) : updater;
+        assertScope();
+        return result;
+      });
+      assertScope();
       if (message)
         notify(
           message +
@@ -153,7 +169,7 @@ export function ClosetProvider({ children }) {
         );
       return next;
     },
-    [notify],
+    [notify, view.ownerId],
   );
 
   const loadWeather = useCallback(async (_date, refresh = false) => {
@@ -240,16 +256,18 @@ export function ClosetProvider({ children }) {
         updateState((next) => {
           deleteWear(next, id);
         }, 'Отметка удалена'),
-      saveCapsule: (draft) =>
+      saveCapsule: (draft, { expectedRecord } = {}) =>
         updateState((next) => {
+          assertRecordUnchanged(next, 'capsules', draft.id, expectedRecord);
           putCapsule(next, draft);
         }, 'Капсула сохранена'),
       removeCapsule: (id) =>
         updateState((next) => {
           deleteCapsule(next, id);
         }, 'Капсула удалена'),
-      saveTrip: (draft) =>
+      saveTrip: (draft, { expectedRecord } = {}) =>
         updateState((next) => {
+          assertRecordUnchanged(next, 'trips', draft.id, expectedRecord);
           putTrip(next, draft);
         }, 'Поездка сохранена'),
       removeTrip: (id) =>
@@ -264,9 +282,10 @@ export function ClosetProvider({ children }) {
         updateState((next) => {
           applyWeekPlans(next, proposals);
         }, 'Образы добавлены в календарь'),
-      saveItem: (draft) =>
+      saveItem: (draft, { expectedRecord } = {}) =>
         updateState(
           (next) => {
+            assertRecordUnchanged(next, 'items', draft.id, expectedRecord);
             putItem(next, draft);
           },
           draft.id ? 'Вещь обновлена' : 'Вещь добавлена',
@@ -318,9 +337,10 @@ export function ClosetProvider({ children }) {
           if (!item) throw new Error('Вещь не найдена.');
           item[key] = !item[key];
         }),
-      saveOutfit: (draft) =>
+      saveOutfit: (draft, { expectedRecord } = {}) =>
         updateState(
           (next) => {
+            assertRecordUnchanged(next, 'outfits', draft.id, expectedRecord);
             putOutfit(next, draft);
           },
           draft.id ? 'Образ обновлён' : 'Образ сохранён',
@@ -336,17 +356,19 @@ export function ClosetProvider({ children }) {
           if (!outfit) throw new Error('Образ не найден.');
           outfit.favorite = !outfit.favorite;
         }),
-      savePlan: (draft) =>
+      savePlan: (draft, { expectedRecord } = {}) =>
         updateState((next) => {
+          assertRecordUnchanged(next, 'plans', draft.id, expectedRecord);
           putPlan(next, draft);
         }, 'План сохранён'),
       removePlan: (id) =>
         updateState((next) => {
           next.plans = next.plans.filter((plan) => plan.id !== id);
         }, 'План удалён'),
-      saveShopping: (draft) =>
+      saveShopping: (draft, { expectedRecord } = {}) =>
         updateState(
           (next) => {
+            assertRecordUnchanged(next, 'shoppingList', draft.id, expectedRecord);
             putShopping(next, draft);
           },
           draft.id ? 'Покупка обновлена' : 'Покупка добавлена',
@@ -376,6 +398,20 @@ export function ClosetProvider({ children }) {
       loadDemo: () => updateState((next) => demoState(next), 'Учебные примеры добавлены'),
       importBackup: async (file, { beforeApply } = {}) => {
         if (!file) throw new Error('Выберите резервную копию.');
+        const controller = controllerRef.current;
+        const assertScope = () => {
+          if (
+            !controller ||
+            controllerRef.current !== controller ||
+            ownerRef.current !== view.ownerId ||
+            requestedOwner.current !== view.ownerId
+          )
+            throw new DOMException(
+              'Аккаунт изменился. Выберите резервную копию заново.',
+              'AbortError',
+            );
+        };
+        assertScope();
         if (file.size > MAX_BACKUP_FILE_BYTES)
           throw new Error(
             `Файл слишком большой. Максимум — ${MAX_BACKUP_FILE_BYTES / 1024 / 1024} МиБ.`,
@@ -387,7 +423,9 @@ export function ClosetProvider({ children }) {
           throw new Error('Не удалось прочитать JSON. Выберите резервную копию MyCloset.');
         }
         const imported = validateState(parsed);
+        assertScope();
         if (beforeApply) await beforeApply();
+        assertScope();
         return updateState(() => imported, 'Резервная копия загружена');
       },
       exportBackup: () => {
@@ -408,7 +446,11 @@ export function ClosetProvider({ children }) {
       resetData: async () => {
         const controller = controllerRef.current;
         if (!controller) throw new Error('Подождите, открываем гардероб.');
+        if (ownerRef.current !== view.ownerId || requestedOwner.current !== view.ownerId)
+          throw new DOMException('Аккаунт изменился. Подтвердите удаление заново.', 'AbortError');
         await controller.reset();
+        if (controllerRef.current !== controller || requestedOwner.current !== view.ownerId)
+          throw new DOMException('Аккаунт изменился.', 'AbortError');
         notify(
           'Все данные удалены' +
             (controller.snapshot().storageMode === 'memory' ? ' из текущей вкладки' : ''),

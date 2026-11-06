@@ -1,35 +1,17 @@
 import { cloudConfigured, getAuthServer } from '@/lib/cloud/auth-server.js';
+import { createAuthHandlers } from '@/lib/cloud/auth-handlers.js';
+import {
+  normalizeEmailAddress,
+  validateRegistrationEmailDomain,
+  validateRegistrationInput,
+} from '@/lib/cloud/email-validation.js';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-function handle(method) {
-  return async (request, context) => {
-    const { path = [] } = await context.params;
-    if (path.join('/') === 'delete-user' && method === 'POST')
-      return Response.json(
-        { error: { message: 'Используйте форму удаления в разделе «Аккаунт».' } },
-        {
-          status: 400,
-          headers: { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie' },
-        },
-      );
-    if (!cloudConfigured())
-      return Response.json(
-        { error: { message: 'Облачное подключение ещё не настроено.' } },
-        {
-          status: 503,
-          headers: { 'Cache-Control': 'private, no-store, max-age=0', Vary: 'Cookie' },
-        },
-      );
-    const response = await getAuthServer().handler()[method](request, context);
-    response.headers.set('Cache-Control', 'private, no-store, max-age=0');
-    const vary = response.headers.get('Vary') || '';
-    if (!vary.split(',').some((value) => value.trim().toLowerCase() === 'cookie'))
-      response.headers.set('Vary', [vary, 'Cookie'].filter(Boolean).join(', '));
-    return response;
-  };
-}
-export const GET = handle('GET');
-export const POST = handle('POST');
-export const PUT = handle('PUT');
-export const PATCH = handle('PATCH');
-export const DELETE = handle('DELETE');
+export const { GET, POST, PUT, PATCH, DELETE } = createAuthHandlers({
+  configured: cloudConfigured,
+  proxy: (method, request, context) => getAuthServer().handler()[method](request, context),
+  validateRegistrationInput,
+  normalizeEmailAddress,
+  validateEmailDomain: validateRegistrationEmailDomain,
+  report: (code) => console.error('MyCloset auth:', code),
+});

@@ -19,6 +19,7 @@ import './styles/social-integration.css';
 import './styles/everyday-shell.css';
 import './styles/everyday-community.css';
 import './styles/everyday-wardrobe.css';
+import './styles/wardrobe-tools.css';
 
 const manrope = localFont({
   src: '../public/assets/fonts/manrope.ttf',

@@ -7,6 +7,7 @@ import { SocialGate } from '@/components/social/social-gate.jsx';
 import { useSocialPoll } from '@/components/social/use-social-poll.js';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { EmptyState, Icon, PageHeader } from '@/components/ui/ui.jsx';
+import NotificationPreferences from '@/components/social/notification-preferences.jsx';
 
 const labels = {
   friend_request: { icon: 'user', label: 'Заявка в друзья' },
@@ -314,6 +315,7 @@ export default function NotificationsPage() {
         title="Уведомления"
         description="Заявки, разговоры и маленькие знаки внимания к вашим образам."
       />
+      <NotificationPreferences />
       <SocialGate>
         <NotificationsContent key={user?.id || 'guest'} />
       </SocialGate>

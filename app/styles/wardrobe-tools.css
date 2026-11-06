@@ -1,0 +1,45 @@
+.trash-filters { display: flex; gap: 10px; flex-wrap: wrap; margin: 22px 0; }
+.trash-list { display: grid; gap: 16px; }
+.trash-card, .bulk-photo-card {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--appearance-surface);
+  min-width: 0;
+}
+.trash-preview, .bulk-photo-preview {
+  flex: 0 0 112px;
+  width: 112px;
+  height: 130px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--appearance-inset);
+}
+.trash-preview img, .bulk-photo-preview img { width: 100%; height: 100%; object-fit: contain; }
+.trash-card-content, .bulk-photo-card-fields { flex: 1; min-width: 0; }
+.trash-card h2 { font-size: 24px; margin: 5px 0 9px; overflow-wrap: anywhere; }
+.trash-card .card-actions { margin-top: 16px; flex-wrap: wrap; gap: 10px; }
+.bulk-photo-common { padding: 20px 0; margin: 16px 0; border-block: 1px solid var(--line); }
+.bulk-photo-choices { border: 0; padding: 0; margin: 16px 0; min-width: 0; }
+.bulk-photo-choices legend { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
+.bulk-photo-choices .checkbox-group { display: flex; flex-wrap: wrap; gap: 9px 16px; }
+.bulk-photo-list { display: grid; gap: 14px; }
+.bulk-photo-card { padding: 14px; gap: 14px; }
+.bulk-photo-card details { margin: 12px 0; }
+.bulk-photo-card summary { cursor: pointer; font-size: 13px; font-weight: 700; }
+.bulk-photo-card details > .field { margin-top: 14px; }
+.toast { display: flex; align-items: center; gap: 16px; }
+.toast .toast-undo { color: inherit; font-weight: 800; text-decoration: underline; white-space: nowrap; }
+.wardrobe-tools-links { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+@media (max-width: 560px) {
+  .trash-card, .bulk-photo-card { gap: 12px; padding: 12px; }
+  .trash-preview, .bulk-photo-preview { flex-basis: 72px; width: 72px; height: 90px; }
+  .trash-card h2 { font-size: 20px; }
+  .trash-card .card-actions { align-items: stretch; flex-direction: column; }
+  .toast { gap: 10px; flex-wrap: wrap; }
+}

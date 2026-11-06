@@ -127,7 +127,7 @@ export default function ItemForm({ item, onClose }) {
     return (
       <ConfirmDialog
         title="Удалить вещь?"
-        description={`«${draft.name}» будет удалена из гардероба. Сохранённые образы останутся, но их состав нужно будет проверить.`}
+        description={`«${draft.name}» вместе с фотографией переместится в корзину. Вещь можно восстановить. Сохранённые образы останутся, но до восстановления их состав нужно проверить.`}
         onClose={() => setDeleting(false)}
         onConfirm={async () => {
           await removeItem(item.id);

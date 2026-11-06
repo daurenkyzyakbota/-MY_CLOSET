@@ -9,13 +9,16 @@ import { AppButton } from '@/components/ui/app-button.jsx';
 import { Field, Icon, Loading, Modal, PageHeader } from '@/components/ui/ui.jsx';
 import AccountSocialPanel from '@/components/social/account-social-panel.jsx';
 import AccountDetails from '@/components/account/account-details.jsx';
+import CloudConflictResolver from '@/components/account/cloud-conflict-resolver.jsx';
+import AccountSessions from '@/components/account/account-sessions.jsx';
+import CloudPhotoStorage from '@/components/account/cloud-photo-storage.jsx';
 
 const statuses = {
   disconnected: 'Синхронизация отключена',
   ready: 'Гардероб синхронизирован',
   syncing: 'Синхронизируем…',
   offline: 'Нет подключения к интернету',
-  conflict: 'Нужно выбрать копию',
+  conflict: 'Нужно объединить изменения',
   error: 'Не удалось синхронизировать',
 };
 const titles = {
@@ -237,6 +240,8 @@ export default function AccountPage() {
       ) : signedIn ? (
         <>
           <AccountDetails />
+          <AccountSessions />
+          <CloudPhotoStorage />
           <AccountSocialPanel />
           <div className="row g-4 account-layout">
             <div className="col-12 col-xl-5">
@@ -357,18 +362,16 @@ export default function AccountPage() {
                 <div className="section-heading">
                   <h2>
                     {cloud.status === 'conflict'
-                      ? 'Какой гардероб сохранить?'
+                      ? 'Проверить изменения гардероба'
                       : cloud.connected
                         ? 'Сохранение в аккаунте включено'
                         : 'Гардероб на всех устройствах'}
                   </h2>
                 </div>
                 {cloud.status === 'conflict' && (
-                  <p className="notice">
-                    На устройствах появились разные изменения. Копии не объединяются автоматически.
-                    Перед выбором скачайте резервную копию этого устройства.
-                  </p>
+                  <CloudConflictResolver />
                 )}
+                {cloud.mergeBaseWarning && <p className="notice" role="status">{cloud.mergeBaseWarning}</p>}
                 {!cloud.connected && cloud.status !== 'conflict' && ['create', 'open'].includes(setup) && (
                   <div className="account-connect-actions">
                     <p>
@@ -700,7 +703,7 @@ export default function AccountPage() {
               <p>Войдите на телефоне или другом компьютере, чтобы открыть свою облачную копию.</p>
               <ul>
                 <li>Сначала выберите, какой гардероб сохранить.</li>
-                <li>При одновременных изменениях сайт попросит выбрать копию.</li>
+                <li>При одновременных изменениях сайт предложит объединить данные и выбрать спорные поля.</li>
                 <li>
                   В уже открытой вкладке можно редактировать локальный гардероб без интернета.
                 </li>

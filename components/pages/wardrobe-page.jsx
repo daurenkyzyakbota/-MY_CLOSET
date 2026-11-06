@@ -4,6 +4,7 @@ import { AppButton } from '@/components/ui/app-button.jsx';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Checkbox from '@mui/material/Checkbox';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   CATEGORIES,
   COLORS,
@@ -20,6 +21,7 @@ import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { ConfirmDialog, EmptyState, Icon, Loading, PageHeader } from '@/components/ui/ui.jsx';
 import ItemCard from '@/components/cards/item-card.jsx';
 import ItemForm from '@/components/forms/item-form.jsx';
+import BulkItemForm from '@/components/forms/bulk-item-form.jsx';
 import {
   LIST_PREFERENCE_KEYS,
   WARDROBE_PREFERENCES,
@@ -56,6 +58,7 @@ function WardrobeList() {
   const search = useSearchParams().toString();
   const { state, ready, ownerId, batchItems, loadDemo, notify } = useCloset();
   const [editing, setEditing] = useState(null);
+  const [bulkAdding, setBulkAdding] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
   const [batchAction, setBatchAction] = useState('favorite');
@@ -182,6 +185,11 @@ function WardrobeList() {
         title="Мой гардероб"
         description="Любимые вещи. Удобный порядок. Больше удачных сочетаний."
       >
+        <AppButton className="btn btn-secondary" disabled={!!busy} onClick={() => setBulkAdding(true)}>
+          <Icon name="image" />
+          Несколько фото
+        </AppButton>
+        <Link className="btn btn-ghost" href="/trash">Корзина</Link>
         {(items.length > 0 || selecting) && (
           <>
             <AppButton
@@ -457,10 +465,11 @@ function WardrobeList() {
       {editing && (
         <ItemForm key={editing.id || 'new-item'} item={editing} onClose={() => setEditing(null)} />
       )}
+      {bulkAdding && <BulkItemForm key={ownerId || 'guest'} onClose={() => setBulkAdding(false)} />}
       {deleting && (
         <ConfirmDialog
           title={`Удалить выбранные вещи (${deleting.ids.length})?`}
-          description="Вещи будут удалены из этого гардероба. Ссылки в образах, календаре, истории, капсулах и поездках сохранятся; недостающие вещи будут отмечены. Это действие нельзя отменить — при необходимости сначала сохраните резервную копию."
+          description="Вещи вместе с фотографиями переместятся в корзину. Их можно восстановить. Ссылки в образах, календаре, истории, капсулах и поездках сохранятся; недостающие вещи будут отмечены."
           onClose={() => {
             if (!batchFlight.current) setDeleting(null);
           }}

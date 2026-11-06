@@ -4,6 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { refreshCurrentConflict, switchOwnerAfterSync } from '@/lib/cloud/cloud-job-guards.js';
 import { createCloudConfigurationReader } from '@/lib/cloud/cloud-configuration.js';
+import { createCloudBaseStorage } from '@/lib/cloud/cloud-merge-base.js';
+import { assertMergePreviewCurrent, mergeWardrobes } from '@/lib/cloud/cloud-merge.js';
+import { validateState } from '@/lib/data/model.js';
 import {
   CLOUD_CONNECTION_PREFIX,
   CLOUD_OWNER_KEY,
@@ -92,8 +95,12 @@ export function CloudSyncProvider({ children }) {
   const flight = useRef(null);
   const connectionRef = useRef(null);
   const remoteRef = useRef(null);
+  const mergeBaseRef = useRef(null);
+  const baseStorage = useRef(null);
+  if (!baseStorage.current) baseStorage.current = createCloudBaseStorage();
   const statusRef = useRef('disconnected');
   const [configured, setConfigured] = useState(null);
+  const [photoStorageReady, setPhotoStorageReady] = useState(false);
   const [configError, setConfigError] = useState('');
   const [connection, setConnection] = useState(null);
   const [remote, setRemote] = useState(null);
@@ -103,6 +110,8 @@ export function CloudSyncProvider({ children }) {
   const [remembered, setRemembered] = useState(true);
   const [online, setOnline] = useState(true);
   const [requiresHttps, setRequiresHttps] = useState(false);
+  const [conflictPreview, setConflictPreview] = useState(null);
+  const [mergeBaseWarning, setMergeBaseWarning] = useState('');
 
   useEffect(() => {
     if (!closet.ready || !userId || closet.ownerId !== userId) return;
@@ -150,6 +159,9 @@ export function CloudSyncProvider({ children }) {
       if (connectionRef.current) forget(connectionRef.current.userId);
       connectionRef.current = null;
       setConnection(null);
+      setConflictPreview(null);
+      mergeBaseRef.current = null;
+      setMergeBaseWarning('');
       setBusy(false);
       changeStatus('disconnected', message);
       return previous?.promise;
@@ -181,11 +193,13 @@ export function CloudSyncProvider({ children }) {
       onResult: (result) => {
         configurationAvailable = result.configured;
         setConfigured(result.configured);
+        setPhotoStorageReady(result.photos === true);
         setConfigError('');
       },
       onError: (cause) => {
         configurationAvailable = false;
         setConfigured(false);
+        setPhotoStorageReady(false);
         setConfigError(cause.message);
       },
     });
@@ -214,7 +228,21 @@ export function CloudSyncProvider({ children }) {
   }, [refetchSession]);
 
   const commitConnection = useCallback(
-    (record, id) => {
+    async (record, context, acknowledgedSnapshot = record.snapshot) => {
+      const { id } = context;
+      context.assertCurrent();
+      if (acknowledgedSnapshot) {
+        const base = { userId: id, revision: record.revision, hash: record.hash, snapshot: acknowledgedSnapshot };
+        mergeBaseRef.current = base;
+        try {
+          await baseStorage.current.write(base);
+          if (context.isCurrent()) setMergeBaseWarning('');
+        } catch {
+          if (context.isCurrent())
+            setMergeBaseWarning('Не удалось сохранить базовую версию в браузере. После перезагрузки для спорных изменений может понадобиться выбор целой копии.');
+        }
+      }
+      context.assertCurrent();
       const value = {
         userId: id,
         connected: true,
@@ -225,6 +253,7 @@ export function CloudSyncProvider({ children }) {
       setConnection(value);
       setRemembered(writeCloudConnection(browserStorage(), value));
       showRemote(record);
+      setConflictPreview(null);
       changeStatus('ready');
     },
     [changeStatus, showRemote],
@@ -260,7 +289,7 @@ export function CloudSyncProvider({ children }) {
         previousStatus,
         isCurrent,
         assertCurrent,
-        options: { userId: id, signal: controller.signal },
+        options: { userId: id, signal: controller.signal, separatePhotos: photoStorageReady },
       };
       const current = { controller, promise: null };
       flight.current = current;
@@ -287,6 +316,7 @@ export function CloudSyncProvider({ children }) {
             stop(cause.message);
             void latest.current.refetchSession();
           } else if (cause.status === 409) {
+            setConflictPreview(null);
             await refreshCurrentConflict({
               readRemote: () => fetchCloudWardrobe(context.options),
               assertCurrent,
@@ -309,7 +339,7 @@ export function CloudSyncProvider({ children }) {
       })();
       return current.promise;
     },
-    [configured, changeStatus, showRemote, stop],
+    [configured, photoStorageReady, changeStatus, showRemote, stop],
   );
 
   const fetchRemote = useCallback(
@@ -364,7 +394,7 @@ export function CloudSyncProvider({ children }) {
         context.assertCurrent();
         const saved = await uploadCloudWardrobe(snapshot, current.revision, context.options);
         context.assertCurrent();
-        commitConnection(saved, context.id);
+        await commitConnection(saved, context);
         latest.current.closet.notify('Гардероб сохранён в облаке. Синхронизация подключена.');
         return saved;
       }),
@@ -383,7 +413,7 @@ export function CloudSyncProvider({ children }) {
             409,
           );
         await applyRemote(current, hash, context);
-        commitConnection(current, context.id);
+        await commitConnection(current, context);
         latest.current.closet.notify('Облачный гардероб открыт на этом устройстве.');
         return current;
       }),
@@ -403,20 +433,66 @@ export function CloudSyncProvider({ children }) {
       if (action === 'conflict') {
         changeStatus(
           'conflict',
-          'Гардероб изменился и здесь, и на другом устройстве. Автоматическая синхронизация приостановлена. Выберите, какую копию сохранить.',
+          'Гардероб изменился и здесь, и на другом устройстве. Проверьте объединение изменений перед сохранением.',
         );
       } else if (action === 'download') {
         await applyRemote(current, localHash, context);
-        commitConnection(current, context.id);
+        await commitConnection(current, context);
       } else if (action === 'upload') {
         const saved = await uploadCloudWardrobe(snapshot, base.revision, context.options);
         context.assertCurrent();
-        commitConnection(saved, context.id);
-      } else if (action === 'acknowledge') commitConnection(current, context.id);
+        await commitConnection(saved, context);
+      } else if (action === 'acknowledge') await commitConnection(current, context, snapshot);
       else changeStatus('ready');
       return current;
     });
   }, [runJob, fetchRemote, applyRemote, commitConnection, changeStatus]);
+
+  const prepareConflict = useCallback(() => runJob(async (context) => {
+    const acknowledged = connectionRef.current;
+    const local = latest.current.closet.state;
+    const localHash = await hashSnapshot(local);
+    context.assertCurrent();
+    const current = await fetchRemote(context);
+    let base = mergeBaseRef.current;
+    if (!base || base.userId !== context.id || base.revision !== acknowledged?.revision || base.hash !== acknowledged?.lastHash) {
+      try { base = await baseStorage.current.read(context.id); } catch { base = null; }
+    }
+    context.assertCurrent();
+    const validBase = !!base && base.userId === context.id && base.revision === acknowledged?.revision && base.hash === acknowledged?.lastHash && (await hashSnapshot(base.snapshot)) === base.hash;
+    context.assertCurrent();
+    const preview = {
+      userId: context.id, revision: current.revision, localHash, local,
+      cloud: current.snapshot, base: validBase ? base.snapshot : null,
+    };
+    setConflictPreview(preview);
+    changeStatus('conflict');
+    return preview;
+  }), [runJob, fetchRemote, changeStatus]);
+
+  const resolveConflict = useCallback((choices) => runJob(async (context) => {
+    const preview = conflictPreview;
+    assertMergePreviewCurrent(preview, {
+      userId: context.id, localHash: await hashSnapshot(latest.current.closet.state), revision: preview?.revision,
+    });
+    context.assertCurrent();
+    const current = await fetchRemote(context);
+    assertMergePreviewCurrent(preview, {
+      userId: context.id, localHash: await hashSnapshot(latest.current.closet.state), revision: current.revision,
+    });
+    const merged = mergeWardrobes(preview.base, preview.local, preview.cloud, choices);
+    if (merged.unresolved) throw new CloudSyncError('Выберите вариант для каждого спорного изменения.');
+    const snapshot = validateState(merged.snapshot);
+    if (await hashSnapshot(latest.current.closet.state) !== preview.localHash)
+      throw new CloudSyncError('На устройстве появились новые изменения. Постройте объединение ещё раз.', 409, 'LOCAL_CHANGED');
+    context.assertCurrent();
+    const saved = await uploadCloudWardrobe(snapshot, current.revision, context.options);
+    context.assertCurrent();
+    await applyRemote(saved, preview.localHash, context);
+    await commitConnection(saved, context);
+    latest.current.closet.notify('Изменения объединены и сохранены на этом устройстве и в аккаунте.');
+    return saved;
+  }), [conflictPreview, runJob, fetchRemote, applyRemote, commitConnection]);
 
   useEffect(() => {
     if (authSession.isPending || closet.ownerId === userId) return;
@@ -437,6 +513,10 @@ export function CloudSyncProvider({ children }) {
     if (closet.ownerId !== userId) return;
     if (owner.current === userId) return;
     const previous = owner.current;
+    if (previous && previous !== userId)
+      void import('@/lib/notifications/browser-client.js')
+        .then(({ disconnectBrowserNotifications }) => disconnectBrowserNotifications(previous))
+        .catch(() => {});
     stop();
     showRemote(null);
     if (previous !== undefined) {
@@ -560,9 +640,14 @@ export function CloudSyncProvider({ children }) {
     return { needsVerification: !result?.token && !result?.session };
   }
   async function signOut() {
+    const signingOutUserId = latest.current.userId;
     const pending = stop();
-    forget(latest.current.userId);
+    forget(signingOutUserId);
     await pending?.catch(() => {});
+    await import('@/lib/notifications/browser-client.js')
+      .then(({ disconnectBrowserNotifications }) => disconnectBrowserNotifications(signingOutUserId))
+      .catch(() => {});
+    if (latest.current.userId !== signingOutUserId) throw aborted();
     await checkedAuth(auth().signOut());
     // A successful sign-out must hide the old account even if the subsequent
     // session refresh fails because the network disappears at this point.
@@ -600,7 +685,7 @@ export function CloudSyncProvider({ children }) {
     saved: 'Сохранено в аккаунте',
     offline: 'Без сети · на устройстве',
     error: 'Не сохранено в аккаунте',
-    conflict: 'Нужно выбрать гардероб',
+    conflict: 'Нужно объединить изменения',
   }[saveStatus];
 
   return (
@@ -614,6 +699,7 @@ export function CloudSyncProvider({ children }) {
           ? 'Не удалось проверить вход в аккаунт. Проверьте подключение и повторите попытку.'
           : '',
         configured,
+        photoStorageReady,
         configError,
         connection: scopedConnection,
         connected: !!scopedConnection?.connected,
@@ -624,6 +710,10 @@ export function CloudSyncProvider({ children }) {
         remembered,
         online,
         requiresHttps,
+        conflictPreview: conflictPreview?.userId === userId ? conflictPreview : null,
+        mergeBaseWarning,
+        prepareConflict,
+        resolveConflict,
         signIn,
         signUp,
         signOut,

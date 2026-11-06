@@ -80,7 +80,7 @@ const state = () => ({
 const previous = (version) => {
   const s = state();
   s.version = version;
-  for (const key of ['wearLog', 'capsules', 'trips']) delete s[key];
+  for (const key of ['wearLog', 'capsules', 'trips', 'trash']) delete s[key];
   for (const i of s.items) for (const key of Object.keys(metadata)) delete i[key];
   if (version < 3) {
     delete s.shoppingList;

@@ -54,7 +54,7 @@ export default function WardrobePage() {
 
 function WardrobeList() {
   const search = useSearchParams().toString();
-  const { state, ready, ownerId, batchItems, notify } = useCloset();
+  const { state, ready, ownerId, batchItems, loadDemo, notify } = useCloset();
   const [editing, setEditing] = useState(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
@@ -134,6 +134,19 @@ function WardrobeList() {
       throw cause;
     } finally {
       batchFlight.current = false;
+      setBusy('');
+    }
+  }
+  async function addDemoItems() {
+    if (busy) return;
+    setBusy('demo');
+    setError('');
+    try {
+      await loadDemo();
+      reset();
+    } catch (cause) {
+      setError(cause.message || 'Не удалось добавить учебные вещи.');
+    } finally {
       setBusy('');
     }
   }
@@ -425,11 +438,19 @@ function WardrobeList() {
         <EmptyState
           icon="wardrobe"
           title="Ваш гардероб начинается здесь"
-          description="Добавьте любимую футболку, удобные джинсы или пару обуви."
+          description="Добавьте свои вещи или заполните гардероб учебными примерами, чтобы посмотреть, как работают образы."
         >
-          <AppButton className="button button-primary" onClick={() => setEditing({})}>
+          <AppButton
+            className="button button-primary"
+            onClick={() => setEditing({})}
+            disabled={!!busy}
+          >
             <Icon name="plus" />
             Добавить вещь
+          </AppButton>
+          <AppButton className="button button-secondary" onClick={addDemoItems} disabled={!!busy}>
+            <Icon name="sparkle" />
+            {busy === 'demo' ? 'Добавляем примеры…' : 'Добавить примеры'}
           </AppButton>
         </EmptyState>
       )}

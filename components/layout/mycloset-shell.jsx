@@ -225,7 +225,6 @@ export default function MyClosetShell({ children }) {
               >
                 <Icon name="search" />
               </AppButton>
-              <SaveIndicator compact />
               <Link
                 className="icon-btn header-device"
                 href="/devices"

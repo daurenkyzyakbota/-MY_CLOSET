@@ -57,6 +57,11 @@
   display: grid;
   gap: 14px;
 }
+/* Keep the switch input's hit area across the whole track. */
+.notification-preferences .MuiSwitch-input {
+  width: 300%;
+  height: 100%;
+}
 @media (max-width: 600px) {
   .social-header-link {
     display: none;

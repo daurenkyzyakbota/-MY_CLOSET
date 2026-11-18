@@ -49,26 +49,32 @@ test('controller is not ready before storage read and migrates without changing 
   await initialization;
   assert.equal(controller.snapshot().ready, true);
   assert.equal(controller.snapshot().state.version, 5);
+  assert.equal(controller.snapshot().saveStatus, 'idle');
+  assert.equal(controller.snapshot().saveError, '');
   assert.equal(original.version, 1);
   assert.equal(writes.length, 0);
 });
 
-test('queued writes use the latest state and publish only after persistence completes', async () => {
+test('queued writes report progress while publishing wardrobe changes only after persistence completes', async () => {
   const gate = deferred();
   let calls = 0;
   const writes = [];
+  const published = [];
   const controller = createClosetController({
     load: async () => undefined,
     save: async (value) => {
       writes.push(structuredClone(value));
       if (calls++ === 0) await gate.promise;
     },
-  });
+  }, (view) => published.push(view));
   await controller.initialize();
   const first = controller.update((state) => putItem(state, item({ id: 'first' })) && state);
   const second = controller.update((state) => putItem(state, item({ id: 'second' })) && state);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(controller.snapshot().state.items.length, 0);
+  assert.equal(controller.snapshot().saveStatus, 'saving');
+  assert.equal(controller.snapshot().saveError, '');
+  assert.equal(published.at(-1).state, published[0].state);
   assert.equal(writes.length, 1);
   gate.resolve();
   await Promise.all([first, second]);
@@ -80,6 +86,13 @@ test('queued writes use the latest state and publish only after persistence comp
     writes[1].items.map((item) => item.id),
     ['first', 'second'],
   );
+  assert.equal(controller.snapshot().saveStatus, 'saved');
+  assert.deepEqual(published.map((view) => view.saveStatus), [
+    'idle', 'saving', 'saved', 'saving', 'saved',
+  ]);
+  assert.deepEqual(published.map((view) => view.state.items.map((entry) => entry.id)), [
+    [], [], ['first'], ['first'], ['first', 'second'],
+  ]);
 });
 
 test('failed persistence and invalid mutations leave prior state intact without poisoning later writes', async () => {
@@ -95,11 +108,22 @@ test('failed persistence and invalid mutations leave prior state intact without 
   await controller.initialize();
   await assert.rejects(
     controller.update((state) => {
+      putItem(state, item({ colors: [] }));
+    }),
+  );
+  assert.equal(controller.snapshot().saveStatus, 'idle');
+  assert.equal(controller.snapshot().saveError, '');
+  const before = controller.snapshot().state;
+  await assert.rejects(
+    controller.update((state) => {
       putItem(state, item({ id: 'failed' }));
     }),
     /Disk full/,
   );
   assert.equal(controller.snapshot().state.items.length, 0);
+  assert.equal(controller.snapshot().state, before);
+  assert.equal(controller.snapshot().saveStatus, 'error');
+  assert.equal(controller.snapshot().saveError, 'Disk full');
   fail = false;
   await assert.rejects(
     controller.update((state) => {
@@ -107,11 +131,15 @@ test('failed persistence and invalid mutations leave prior state intact without 
     }),
   );
   assert.equal(writes.length, 0);
+  assert.equal(controller.snapshot().saveStatus, 'error');
+  assert.equal(controller.snapshot().saveError, 'Disk full');
   await controller.update((state) => {
     putItem(state, item({ id: 'saved' }));
   });
   assert.equal(controller.snapshot().state.items[0].id, 'saved');
   assert.equal(writes.length, 1);
+  assert.equal(controller.snapshot().saveStatus, 'saved');
+  assert.equal(controller.snapshot().saveError, '');
 });
 
 test('damaged or unavailable storage remains untouched; memory edits are labelled and explicit reset can recover', async () => {
@@ -128,11 +156,45 @@ test('damaged or unavailable storage remains untouched; memory edits are labelle
       putItem(state, item());
     });
     assert.equal(writes.length, 0);
+    assert.equal(controller.snapshot().saveStatus, 'idle');
     await controller.reset();
     assert.equal(writes.length, 1);
     assert.equal(controller.snapshot().storageMode, 'persistent');
     assert.equal(controller.snapshot().state.items.length, 0);
+    assert.equal(controller.snapshot().saveStatus, 'saved');
+    assert.equal(controller.snapshot().saveError, '');
   }
+});
+
+test('reset reports pending and failed storage without clearing the wardrobe or losing a retry', async () => {
+  const initial = emptyState();
+  putItem(initial, item({ id: 'shirt' }));
+  const gate = deferred();
+  let writes = 0;
+  const controller = createClosetController({
+    load: async () => initial,
+    save: async () => {
+      if (writes++ === 0) await gate.promise;
+    },
+  });
+  await controller.initialize();
+  const before = controller.snapshot().state;
+  const reset = controller.reset();
+  const failure = assert.rejects(reset, /Disk full/);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(controller.snapshot().saveStatus, 'saving');
+  assert.equal(controller.snapshot().state, before);
+  gate.reject(new Error('Disk full'));
+  await failure;
+  assert.equal(controller.snapshot().saveStatus, 'error');
+  assert.equal(controller.snapshot().saveError, 'Disk full');
+  assert.equal(controller.snapshot().state, before);
+  assert.equal(controller.snapshot().canUndo, false);
+  await controller.reset();
+  assert.equal(controller.snapshot().saveStatus, 'saved');
+  assert.equal(controller.snapshot().saveError, '');
+  assert.deepEqual(controller.snapshot().state, emptyState());
+  assert.equal(controller.snapshot().canUndo, true);
 });
 
 test('purchase-to-garment conversion commits both records atomically and rejects duplicate conversion', async () => {

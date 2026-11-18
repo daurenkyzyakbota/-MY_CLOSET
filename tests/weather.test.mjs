@@ -158,6 +158,7 @@ test('forecast cache lasts 10 minutes; forced update bypasses it and has cooldow
     fetcher: async (url, options) => {
       calls++;
       assert.equal(url.origin, 'https://api.open-meteo.com');
+      assert.equal(url.searchParams.has('apikey'), false);
       assert.equal(url.searchParams.get('forecast_days'), '16');
       assert.equal(url.searchParams.get('wind_speed_unit'), 'ms');
       assert.equal(url.searchParams.get('timezone'), 'auto');
@@ -179,6 +180,57 @@ test('forecast cache lasts 10 minutes; forced update bypasses it and has cooldow
   now += 600000;
   await service.forecast(point);
   assert.equal(calls, 4);
+});
+
+test('configured Open-Meteo key is sent only to the fixed customer forecast URL', async () => {
+  const apiKey = 'test-key+one&not-a-param';
+  const requests = [];
+  const service = createWeatherService({
+    getForecastApiKey: () => '  ' + apiKey + '  ',
+    fetcher: async (url, options) => {
+      requests.push({ url, options });
+      return json(url.pathname === '/v1/forecast' ? payload() : {});
+    },
+  });
+  await service.searchCities('Астана');
+  const forecast = await service.forecast(point);
+  assert.strictEqual(await service.forecast(point), forecast);
+  assert.equal(requests.length, 2);
+  const [city, weather] = requests;
+  assert.equal(city.url.origin, 'https://geocoding-api.open-meteo.com');
+  assert.equal(city.url.searchParams.has('apikey'), false);
+  assert.equal(weather.url.origin + weather.url.pathname, 'https://customer-api.open-meteo.com/v1/forecast');
+  assert.equal(weather.url.searchParams.get('apikey'), apiKey);
+  assert.equal(weather.url.searchParams.get('forecast_days'), '16');
+  assert.equal(weather.options.redirect, 'manual');
+  assert.equal(weather.options.cache, 'no-store');
+  assert.ok(!JSON.stringify(forecast).includes(apiKey));
+});
+
+test('failed customer request does not follow a redirect or expose the key', async (t) => {
+  const apiKey = 'example-private-key';
+  const warn = t.mock.method(console, 'warn', () => {});
+  let calls = 0;
+  const service = createWeatherService({
+    getForecastApiKey: () => apiKey,
+    fetcher: async (url, options) => {
+      calls++;
+      assert.equal(options.redirect, 'manual');
+      return new Response('Request for ' + url.href, {
+        status: 302,
+        headers: { location: 'https://example.com/?apikey=' + apiKey },
+      });
+    },
+  });
+  await assert.rejects(service.forecast(point), {
+    status: 503,
+    message: 'Сервис погоды временно недоступен.',
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(warn.mock.calls[0].arguments, [
+    'Open-Meteo request failed',
+    { operation: 'weather', status: 302 },
+  ]);
 });
 
 test('city cache lasts 30 minutes and concurrent identical requests are deduplicated', async () => {

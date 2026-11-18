@@ -159,7 +159,7 @@ test('concurrent controller writes in two tabs retain the successful wardrobe an
   const published = [[], []];
   const controllers = published.map((changes) =>
     createClosetController(createBrowserStorage(database), (view) =>
-      changes.push(structuredClone(view.state)),
+      changes.push({ state: structuredClone(view.state), saveStatus: view.saveStatus }),
     ),
   );
   await Promise.all(controllers.map((controller) => controller.initialize()));
@@ -173,8 +173,11 @@ test('concurrent controller writes in two tabs retain the successful wardrobe an
   assert.deepEqual(database.read(), controllers[winner].snapshot().state);
   assert.equal(controllers[loser].snapshot().state.items.length, 0);
   assert.equal(controllers[loser].snapshot().storageMode, 'persistent');
-  assert.equal(published[loser].length, 1);
-  assert.equal(published[winner].length, 2);
+  assert.deepEqual(published[loser].map((view) => view.saveStatus), ['idle', 'saving', 'error']);
+  assert.ok(published[loser].every((view) => view.state.items.length === 0));
+  assert.deepEqual(published[winner].map((view) => view.saveStatus), ['idle', 'saving', 'saved']);
+  assert.ok(published[winner].slice(0, -1).every((view) => view.state.items.length === 0));
+  assert.deepEqual(published[winner].at(-1).state, database.read());
 });
 
 test('own sequential saves continue working and reloading a stale storage explicitly adopts the latest baseline', async () => {

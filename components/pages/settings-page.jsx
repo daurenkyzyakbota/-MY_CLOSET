@@ -9,7 +9,16 @@ import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { useCloudSync } from '@/components/providers/cloud-sync-provider.jsx';
 import { COLORS, MAX_BACKUP_FILE_BYTES } from '@/lib/data/model.js';
 import { CityPicker } from '@/components/forms/city-picker.jsx';
+import InAppNotificationPreferences from '@/components/social/in-app-notification-preferences.jsx';
+import NotificationPreferences from '@/components/social/notification-preferences.jsx';
 import { ConfirmDialog, Field, Icon, Loading, PageHeader } from '@/components/ui/ui.jsx';
+
+const sections = [
+  { id: 'profile-form', label: 'Профиль', icon: 'user' },
+  { id: 'appearance-settings', label: 'Тема', icon: 'moon' },
+  { id: 'notification-settings', label: 'Уведомления', icon: 'bell' },
+  { id: 'backup-settings', label: 'Данные', icon: 'download' },
+];
 
 export default function SettingsPage() {
   const closet = useCloset();
@@ -18,6 +27,7 @@ export default function SettingsPage() {
   const [draft, setDraft] = useState(state.profile);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [backupError, setBackupError] = useState('');
   const [cityOpen, setCityOpen] = useState(false);
   const [confirmation, setConfirmation] = useState(null);
   const [backup, setBackup] = useState(null);
@@ -49,8 +59,9 @@ export default function SettingsPage() {
   function confirmImport(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    setBackupError('');
     if (file.size > MAX_BACKUP_FILE_BYTES) {
-      setError('Файл слишком большой. Максимум — ' + MAX_BACKUP_FILE_BYTES / 1024 / 1024 + ' МиБ.');
+      setBackupError('Файл слишком большой. Максимум — ' + MAX_BACKUP_FILE_BYTES / 1024 / 1024 + ' МиБ.');
       event.target.value = '';
       return;
     }
@@ -85,13 +96,20 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Настройки" description="Сделайте MyCloset немного ближе к себе." />
+      <PageHeader title="Настройки" />
       <div className="settings-layout bootstrap-layout">
+        <nav className="settings-shortcuts" aria-label="Разделы настроек">
+          {sections.map(({ id, label, icon }) => (
+            <a key={id} className="btn btn-secondary" href={`#${id}`}>
+              <Icon name={icon} />
+              {label}
+            </a>
+          ))}
+        </nav>
         <div className="row bootstrap-settings-row align-items-start">
-          <div className="col-12 col-xl-6 bootstrap-grid-col bootstrap-settings-main d-flex">
-            <form id="profile-form" className="settings-card" onSubmit={save}>
-              <p className="eyebrow">ЛИЧНЫЙ ПРОФИЛЬ</p>
-              <h2>Как к вам обращаться?</h2>
+          <div className="col-12 col-xl-6 bootstrap-grid-col bootstrap-settings-main settings-section-stack">
+            <form id="profile-form" className="settings-card" onSubmit={save} tabIndex={-1}>
+              <h2>Профиль</h2>
               <div className="form-grid">
                 <Field label="Имя">
                   <input
@@ -121,52 +139,7 @@ export default function SettingsPage() {
                     }
                   />
                 </Field>
-                <Field
-                  label={
-                    <>
-                      Любимые стили <span className="optional">необязательно</span>
-                    </>
-                  }
-                  className="full-width"
-                >
-                  <input
-                    name="styles"
-                    maxLength={200}
-                    placeholder="Минимализм, повседневный, классика…"
-                    value={draft.styles}
-                    onChange={(event) => setDraft({ ...draft, styles: event.target.value })}
-                  />
-                </Field>
               </div>
-              <fieldset className="field">
-                <legend>Любимые цвета</legend>
-                <div className="color-choices">
-                  {Object.entries(COLORS).map(([key, [label, color]]) => (
-                    <label className="color-choice" key={key}>
-                      <input
-                        type="checkbox"
-                        name="colors"
-                        value={key}
-                        checked={draft.colors.includes(key)}
-                        onChange={(event) =>
-                          setDraft({
-                            ...draft,
-                            colors: event.target.checked
-                              ? [...draft.colors, key]
-                              : draft.colors.filter((value) => value !== key),
-                          })
-                        }
-                      />
-                      <span className="swatch" style={{ background: color }} />
-                      <span>{label}</span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <p className="footnote">
-                Для точной погоды выберите город из поиска. Предпочтения профиля сохраняются для
-                вас; стиль образа задаётся в стилисте.
-              </p>
               <AppButton
                 type="button"
                 className="btn btn-secondary"
@@ -177,6 +150,43 @@ export default function SettingsPage() {
                   ? 'Город для погоды: ' + state.profile.location.name
                   : 'Выбрать город для погоды'}
               </AppButton>
+              <details className="settings-disclosure">
+                <summary>Любимые стили и цвета</summary>
+                <Field label="Любимые стили">
+                  <input
+                    name="styles"
+                    maxLength={200}
+                    placeholder="Минимализм, повседневный, классика…"
+                    value={draft.styles}
+                    onChange={(event) => setDraft({ ...draft, styles: event.target.value })}
+                  />
+                </Field>
+                <fieldset className="field">
+                  <legend>Любимые цвета</legend>
+                  <div className="color-choices">
+                    {Object.entries(COLORS).map(([key, [label, color]]) => (
+                      <label className="color-choice" key={key}>
+                        <input
+                          type="checkbox"
+                          name="colors"
+                          value={key}
+                          checked={draft.colors.includes(key)}
+                          onChange={(event) =>
+                            setDraft({
+                              ...draft,
+                              colors: event.target.checked
+                                ? [...draft.colors, key]
+                                : draft.colors.filter((value) => value !== key),
+                            })
+                          }
+                        />
+                        <span className="swatch" style={{ background: color }} />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </details>
               {error && (
                 <p className="form-error" role="alert">
                   {error}
@@ -188,46 +198,31 @@ export default function SettingsPage() {
                 </AppButton>
               </div>
             </form>
-          </div>
-          <div className="settings-side col-12 col-xl-6 bootstrap-grid-col bootstrap-settings-side d-flex flex-column">
-            <section className="settings-card theme-settings-card">
-              <p className="eyebrow">В ВАШЕМ СТИЛЕ</p>
+            <section id="appearance-settings" className="settings-card theme-settings-card" tabIndex={-1}>
               <h2>Внешний вид</h2>
-              <p>Выберите тему. Системная меняется вместе с настройками устройства.</p>
               <ThemePicker />
-              <p className="footnote">
-                Выбор сохраняется в этом браузере и применяется ко всем разделам сайта.
-              </p>
             </section>
             <section className="settings-card">
-              <p className="eyebrow">ВАШ ГАРДЕРОБ — РЯДОМ</p>
               <h2>Аккаунт и синхронизация</h2>
-              <p>
-                Подключите облачную копию, чтобы пользоваться одним гардеробом на телефоне и
-                компьютере. При первом входе вы сами выбираете, какие данные перенести.
-              </p>
-              <Link className="btn btn-secondary" href="/account">
-                <Icon name="cloud" />
-                Открыть аккаунт
-              </Link>
+              <p>Подключите облачную копию, чтобы открыть один гардероб на разных устройствах.</p>
+              <div className="d-flex flex-wrap gap-2">
+                <Link className="btn btn-secondary" href="/account">
+                  <Icon name="cloud" />
+                  Открыть аккаунт
+                </Link>
+                <Link className="btn btn-secondary" href="/devices">
+                  <Icon name="phone" />
+                  Открыть на телефоне
+                </Link>
+              </div>
             </section>
-            <section className="settings-card">
-              <p className="eyebrow">БЛИЖЕ К ВАМ</p>
-              <h2>На компьютере и телефоне</h2>
-              <p>Откройте ссылку, отсканируйте QR-код и добавьте MyCloset на главный экран.</p>
-              <Link className="btn btn-secondary" href="/devices">
-                <Icon name="phone" />
-                Открыть на телефоне
-              </Link>
-            </section>
-            <section className="settings-card">
-              <p className="eyebrow">ВАШИ ДАННЫЕ</p>
-              <h2>Всегда под рукой</h2>
-              <p>
-                Локальная копия гардероба хранится в этом браузере. Для синхронизации между
-                устройствами войдите в аккаунт и подключите облачный гардероб. Очистка данных
-                браузера удаляет локальную копию.
-              </p>
+          </div>
+          <div className="col-12 col-xl-6 bootstrap-grid-col bootstrap-settings-side settings-section-stack">
+            <NotificationPreferences />
+            <InAppNotificationPreferences />
+            <section id="backup-settings" className="settings-card" tabIndex={-1}>
+              <h2>Данные и резервные копии</h2>
+              <p>Скачайте копию гардероба с фотографиями, чтобы перенести или восстановить данные.</p>
               <p className="storage-status">
                 {storageMode === 'persistent' ? '✓ Локальное сохранение работает.' : storageError}
               </p>
@@ -236,11 +231,11 @@ export default function SettingsPage() {
                   className="btn btn-secondary"
                   type="button"
                   onClick={() => {
-                    setError('');
+                    setBackupError('');
                     try {
                       closet.exportBackup();
                     } catch (cause) {
-                      setError(cause.message);
+                      setBackupError(cause.message);
                     }
                   }}
                 >
@@ -263,35 +258,30 @@ export default function SettingsPage() {
                 accept=".json,application/json"
                 onChange={confirmImport}
               />
-              <p className="footnote">
-                Копия содержит профиль, фотографии, вещи, образы, покупки, планы, историю носки,
-                капсулы, поездки и корзину. Сохраняйте её время от времени.
-              </p>
+              {backupError && <p className="form-error" role="alert">{backupError}</p>}
+              <details className="settings-disclosure">
+                <summary>Удаление данных</summary>
+                <p className="footnote">Очистите гардероб и профиль в этом браузере.</p>
+                <AppButton
+                  className="btn btn-danger"
+                  type="button"
+                  onClick={() => setConfirmation('reset')}
+                >
+                  <Icon name="trash" />
+                  Удалить все данные
+                </AppButton>
+              </details>
             </section>
             <section className="settings-card">
-              <p className="eyebrow">МОЖНО ВЕРНУТЬ</p>
               <h2>Корзина и отмена</h2>
-              <p>В корзине: {(state.trash || []).length}. Вещи и образы сохраняются там вместе с фотографиями до вашей явной очистки.</p>
+              <p>В корзине: {(state.trash || []).length}. Удалённые вещи и образы можно восстановить.</p>
               <div className="wardrobe-tools-links">
                 <Link className="btn btn-secondary" href="/trash">Открыть корзину</Link>
                 <AppButton className="btn btn-secondary" disabled={!closet.canUndo || closet.undoing} onClick={() => {
                   void closet.undoLastChange().catch((cause) => closet.notify(cause.message));
                 }}>Отменить последнее действие</AppButton>
               </div>
-              <p className="footnote">{closet.canUndo ? closet.undoLabel : 'Пока нет действия для отмены.'} Отмена доступна до перезагрузки или смены аккаунта. Получение новых облачных данных сбрасывает её, чтобы сохранить чужие изменения.</p>
-            </section>
-            <section className="settings-card">
-              <p className="eyebrow">ЧИСТЫЙ ЛИСТ</p>
-              <h2>Начать заново</h2>
-              <p>Удалить гардероб, образы, покупки, календарь и профиль из этого браузера.</p>
-              <AppButton
-                className="btn btn-danger"
-                type="button"
-                onClick={() => setConfirmation('reset')}
-              >
-                <Icon name="trash" />
-                Удалить все данные
-              </AppButton>
+              <p className="footnote">{closet.canUndo ? closet.undoLabel : 'Пока нет действия для отмены.'}</p>
             </section>
           </div>
         </div>

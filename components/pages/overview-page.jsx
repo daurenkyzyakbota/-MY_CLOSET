@@ -168,9 +168,6 @@ function CityDialog({ onClose }) {
 function WeatherCard({ onChooseCity }) {
   const { state, weather, weatherLoading, weatherError, loadWeather } = useCloset();
   const location = state.profile.location;
-  useEffect(() => {
-    if (location) void loadWeather();
-  }, [location?.latitude, location?.longitude, loadWeather]);
   const date = localDate();
   if (!location)
     return (
@@ -193,11 +190,7 @@ function WeatherCard({ onChooseCity }) {
     );
   const day = weather?.days?.find((value) => value.date === date);
   const current = weather?.current?.dateTime?.slice(0, 10) === date ? weather.current : null;
-  const headline = current
-    ? degrees(current.temperature)
-    : day
-      ? `${degrees(day.tempMin)} / ${degrees(day.tempMax)}`
-      : '—';
+  const hasForecast = Boolean(day || current);
   const rain = day?.rainProbability,
     wind = current?.windSpeed ?? day?.windSpeed,
     code = current?.weatherCode ?? day?.weatherCode;
@@ -223,7 +216,7 @@ function WeatherCard({ onChooseCity }) {
       </div>
       {weatherError && (
         <p className="weather-error" role="alert">
-          {weatherError} В стилисте можно указать погоду вручную.
+          {weatherError}
         </p>
       )}
       {weatherLoading && (
@@ -231,41 +224,45 @@ function WeatherCard({ onChooseCity }) {
           Загружаем прогноз…
         </p>
       )}
-      {weather && !day && !current && (
-        <p className="weather-status">
-          На выбранную дату прогноза пока нет. Укажите погоду вручную или выберите другую дату.
-        </p>
+      {weather && !hasForecast && !weatherLoading && !weatherError && (
+        <p className="weather-status">На сегодня прогноза пока нет.</p>
       )}
-      <div className="weather-current">
-        <span className="weather-symbol">
-          <Icon name={weatherGlyph(code)} />
-        </span>
-        <strong className="weather-temperature">{headline}</strong>
-        <div>
-          <span>{day || current ? weatherDescription(code) : 'Прогноз ещё не загружен'}</span>
-          {current ? (
-            <p className="item-meta">Сейчас · ощущается как {degrees(current.feelsLike)}</p>
-          ) : day ? (
-            <p className="item-meta">
-              Ощущается {degrees(day.feelsMin)} / {degrees(day.feelsMax)}
-            </p>
-          ) : null}
-        </div>
-      </div>
-      {(day || current) && (
-        <div className="weather-facts">
-          <span>
-            <Icon name="rain" />
-            Вероятность осадков: {Number.isFinite(rain) ? `${rain}%` : 'нет данных'}
-          </span>
-          <span>
-            <Icon name="wind" />
-            Ветер: {Number.isFinite(wind) ? `${Math.round(wind * 10) / 10} м/с` : 'нет данных'}
-          </span>
-        </div>
+      {hasForecast && (
+        <>
+          <div className="weather-current">
+            <span className="weather-symbol">
+              <Icon name={weatherGlyph(code)} />
+            </span>
+            <strong className="weather-temperature">
+              {current
+                ? degrees(current.temperature)
+                : `${degrees(day.tempMin)} / ${degrees(day.tempMax)}`}
+            </strong>
+            <div>
+              <span>{weatherDescription(code)}</span>
+              {current ? (
+                <p className="item-meta">Сейчас · ощущается как {degrees(current.feelsLike)}</p>
+              ) : (
+                <p className="item-meta">
+                  Ощущается {degrees(day.feelsMin)} / {degrees(day.feelsMax)}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="weather-facts">
+            <span>
+              <Icon name="rain" />
+              Вероятность осадков: {Number.isFinite(rain) ? `${rain}%` : 'нет данных'}
+            </span>
+            <span>
+              <Icon name="wind" />
+              Ветер: {Number.isFinite(wind) ? `${Math.round(wind * 10) / 10} м/с` : 'нет данных'}
+            </span>
+          </div>
+        </>
       )}
       <div className="weather-meta">
-        {weather ? (
+        {weather && (
           <span>
             Источник:{' '}
             <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
@@ -273,8 +270,6 @@ function WeatherCard({ onChooseCity }) {
             </a>
             {updated ? ` · обновлено ${updated}` : ''}
           </span>
-        ) : (
-          <span>Прогноз появится при подключении к интернету.</span>
         )}
         <AppButton
           className="btn btn-ghost"

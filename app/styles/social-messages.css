@@ -14,8 +14,7 @@
   font-size: 13px;
 }
 
-.social-messaging-toplinks a,
-.social-notifications-preferences a {
+.social-messaging-toplinks a {
   color: var(--rose-dark);
   text-underline-offset: 4px;
 }
@@ -446,11 +445,6 @@
 
 .social-notification-filters > .MuiButton-root,
 .social-notification-actions > .MuiButton-root {
-  font-size: 12px;
-}
-
-.social-notifications-preferences {
-  margin: 0 0 24px;
   font-size: 12px;
 }
 

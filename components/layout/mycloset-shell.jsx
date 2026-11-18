@@ -343,6 +343,7 @@ export default function MyClosetShell({ children }) {
                 <Icon name="arrow-right" />
               </Link>
             ))}
+            <SaveIndicator onClick={() => setMore(false)} />
           </nav>
         </Modal>
       )}

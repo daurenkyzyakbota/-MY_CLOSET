@@ -54,13 +54,6 @@ export function ProfileEditor({ profile, onSaved, onCancel }) {
     styles: profile?.styles || '',
     private: profile?.private ?? false,
     allowMessages: profile?.allowMessages || 'friends',
-    notifications: {
-      likes: true,
-      comments: true,
-      friends: true,
-      messages: true,
-      ...profile?.notifications,
-    },
   }));
   const [avatar, setAvatar] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -246,32 +239,6 @@ export function ProfileEditor({ profile, onSaved, onCancel }) {
               <option value="everyone">От всех участников</option>
             </select>
           </Field>
-        </section>
-        <section className="social-preferences">
-          <h3>Уведомления о событиях</h3>
-          <div className="social-notification-options">
-            {[
-              ['friends', 'Заявки и дружба'],
-              ['messages', 'Новые сообщения'],
-              ['likes', 'Лайки'],
-              ['comments', 'Комментарии'],
-            ].map(([key, label]) => (
-              <label className="social-check" key={key}>
-                <input
-                  type="checkbox"
-                  checked={draft.notifications[key]}
-                  onChange={(event) =>
-                    set('notifications', { ...draft.notifications, [key]: event.target.checked })
-                  }
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-          <p className="footnote">
-            Настройки управляют уведомлениями внутри сайта. Счётчик непрочитанных сообщений остаётся
-            доступным в диалогах.
-          </p>
         </section>
       </fieldset>
       <SocialNotice error>{error}</SocialNotice>

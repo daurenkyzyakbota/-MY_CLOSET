@@ -227,8 +227,8 @@ export function ClosetProvider({ children }) {
       if (requestId === weatherRequest.current) {
         setWeatherError(
           error.name === 'TimeoutError'
-            ? 'Сервис погоды отвечает слишком долго. Укажите условия вручную.'
-            : error.message,
+            ? 'Сервис погоды отвечает слишком долго.'
+            : error.message || 'Не удалось получить прогноз.',
         );
         setWeather(null);
       }

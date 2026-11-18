@@ -64,11 +64,17 @@ test('account guards and failed undo persistence cannot change published state o
   const before = structuredClone(closet.snapshot().state);
   await assert.rejects(closet.undo({ assertCurrent: () => { throw new DOMException('Account changed', 'AbortError'); } }), { name: 'AbortError' });
   assert.deepEqual(closet.snapshot().state, before);
+  assert.equal(closet.snapshot().saveStatus, 'saved');
+  assert.equal(closet.snapshot().saveError, '');
   fail = true;
   await assert.rejects(closet.undo(), /Disk full/);
   assert.deepEqual(closet.snapshot().state, before);
   assert.equal(closet.snapshot().canUndo, true);
+  assert.equal(closet.snapshot().saveStatus, 'error');
+  assert.equal(closet.snapshot().saveError, 'Disk full');
   fail = false;
   await closet.undo();
   assert.deepEqual(closet.snapshot().state, emptyState());
+  assert.equal(closet.snapshot().saveStatus, 'saved');
+  assert.equal(closet.snapshot().saveError, '');
 });

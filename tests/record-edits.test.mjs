@@ -67,13 +67,16 @@ test('an open garment editor cannot overwrite a later synced record or recreate 
       else state.items[0].notes = 'Обновлено на другом устройстве';
     });
     const current = structuredClone(closet.snapshot().state);
+    const beforeConflict = published.length;
     await assert.rejects(closet.update((state) => {
       assertRecordUnchanged(state, 'items', expected.id, expected);
       putItem(state, { ...expected, name: 'Старый редактор' });
     }), { code: 'LOCAL_RECORD_CONFLICT' });
     assert.deepEqual(closet.snapshot().state, current);
     assert.equal(writes.length, 1);
-    assert.equal(published.length, 2);
+    assert.equal(published.length, beforeConflict);
+    assert.equal(closet.snapshot().saveStatus, 'saved');
+    assert.equal(closet.snapshot().saveError, '');
   }
 });
 

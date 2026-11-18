@@ -358,7 +358,7 @@ export default function AccountPage() {
               </section>
             </div>
             <div className="col-12 col-xl-7">
-              <section className="settings-card account-card">
+              <section className="settings-card account-card" id="cloud-sync">
                 <div className="section-heading">
                   <h2>
                     {cloud.status === 'conflict'

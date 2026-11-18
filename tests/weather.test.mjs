@@ -161,7 +161,7 @@ test('forecast cache lasts 10 minutes; forced update bypasses it and has cooldow
       assert.equal(url.searchParams.get('forecast_days'), '16');
       assert.equal(url.searchParams.get('wind_speed_unit'), 'ms');
       assert.equal(url.searchParams.get('timezone'), 'auto');
-      assert.equal(options.redirect, 'error');
+      assert.equal(options.redirect, 'manual');
       return json(payload());
     },
   });

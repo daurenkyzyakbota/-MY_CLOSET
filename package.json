@@ -27,6 +27,7 @@
     "@smithy/fetch-http-handler": "5.8.1",
     "bootstrap": "5.3.8",
     "next": "16.4.2",
+    "onnxruntime-web": "1.31.1",
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1"

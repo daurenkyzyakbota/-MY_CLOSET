@@ -101,8 +101,7 @@
   }
 }
 .everyday-start,
-.everyday-card,
-.everyday-trip {
+.everyday-card {
   min-width: 0;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -261,25 +260,6 @@
   padding-left: 8px;
   padding-right: 8px;
 }
-.everyday-trip {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 20px 24px;
-}
-.everyday-trip > div {
-  flex: 1;
-  min-width: 0;
-}
-.everyday-trip strong {
-  overflow-wrap: anywhere;
-}
-.everyday-trip p {
-  color: var(--muted);
-  font-size: 12px;
-  margin: 6px 0 0;
-}
 .quick-search .MuiOutlinedInput-root {
   width: 100%;
 }
@@ -410,13 +390,6 @@
   .everyday-plan {
     align-items: flex-start;
     flex-direction: column;
-  }
-  .everyday-trip {
-    flex-wrap: wrap;
-    padding: 18px;
-  }
-  .everyday-trip > .btn {
-    width: 100%;
   }
   .quick-search-result.MuiButton-root {
     padding: 10px 6px;

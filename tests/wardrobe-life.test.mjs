@@ -14,6 +14,7 @@ import {
 import {
   markWorn,
   removeWear,
+  saveWearPhoto,
   saveCapsule,
   removeCapsule,
   saveTrip,
@@ -329,6 +330,53 @@ test('markWorn derives a real outfit and blocks repeated same-day composition re
   markWorn(state, { date: '2026-10-30', outfitId: 'look' });
   markWorn(state, { date: '2026-10-29', itemIds: ['shirt'] });
   assert.equal(state.wearLog.length, 3);
+});
+
+test('private wear photos survive backup round trips and can be edited without changing the entry', () => {
+  const state = fixture();
+  const original = markWorn(state, { date: '2026-10-29', outfitId: 'look', notes: 'Прогулка' });
+  const photo = 'data:image/webp;base64,YQ==';
+  const replacement = 'data:image/jpeg;base64,Yg==';
+  assert.equal(Object.hasOwn(original, 'photo'), false);
+
+  const changed = saveWearPhoto(state, original.id, photo, { expectedRecord: original });
+  markWorn(state, { date: '2026-10-30', itemIds: ['shirt'], photo: replacement });
+  assert.deepEqual(changed, { ...original, photo });
+  const restored = validateState(JSON.parse(JSON.stringify(state)));
+  assert.deepEqual(restored.wearLog, state.wearLog);
+
+  assert.throws(() => saveWearPhoto(state, original.id, '', { expectedRecord: original }), {
+    code: 'LOCAL_RECORD_CONFLICT',
+  });
+  assert.throws(() => removeWear(state, original.id, { expectedRecord: original }), {
+    code: 'LOCAL_RECORD_CONFLICT',
+  });
+  assert.throws(() => saveWearPhoto(state, original.id, 'https://example.test/photo.jpg'), /Фотография/);
+  assert.deepEqual(state.wearLog[0], changed);
+  const updated = saveWearPhoto(state, original.id, replacement, { expectedRecord: changed });
+  assert.equal(updated.photo, replacement);
+  assert.deepEqual(saveWearPhoto(state, original.id, '', { expectedRecord: updated }), original);
+  assert.equal(state.wearLog[1].photo, replacement);
+
+  removeWear(state, original.id);
+  assert.throws(() => saveWearPhoto(state, original.id, photo, { expectedRecord: original }), {
+    code: 'LOCAL_RECORD_CONFLICT',
+  });
+});
+
+test('wear photos are included in the shared backup photo limit', () => {
+  const state = fixture();
+  const prefix = 'data:image/webp;base64,';
+  const largePhoto = prefix + 'A'.repeat(4_000_000 - prefix.length);
+  state.items[0].photo = largePhoto;
+  state.wearLog = Array.from({ length: 12 }, (_, index) =>
+    wear({
+      id: `wear-${index}`,
+      date: `2026-10-${String(index + 1).padStart(2, '0')}`,
+      photo: largePhoto,
+    }),
+  );
+  assert.throws(() => validateState(state), /лимит резервной копии/);
 });
 
 test('new wear rejects laundry, missing garments and incomplete saved outfits without mutating the draft', () => {

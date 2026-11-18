@@ -28,6 +28,7 @@ import { fetchWeather } from '@/lib/weather/weather-client.js';
 import {
   markWorn as recordWear,
   removeWear as deleteWear,
+  saveWearPhoto as putWearPhoto,
   saveCapsule as putCapsule,
   removeCapsule as deleteCapsule,
   saveTrip as putTrip,
@@ -296,10 +297,14 @@ export function ClosetProvider({ children }) {
         updateState((next) => {
           recordWear(next, draft);
         }, 'Отметка носки сохранена'),
-      removeWear: (id) =>
+      removeWear: (id, options) =>
         updateState((next) => {
-          deleteWear(next, id);
+          deleteWear(next, id, options);
         }, 'Отметка удалена'),
+      saveWearPhoto: (id, photo, options) =>
+        updateState((next) => {
+          putWearPhoto(next, id, photo, options);
+        }, photo ? 'Фото образа сохранено' : 'Фото образа удалено'),
       saveCapsule: (draft, { expectedRecord } = {}) =>
         updateState((next) => {
           assertRecordUnchanged(next, 'capsules', draft.id, expectedRecord);

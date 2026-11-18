@@ -34,28 +34,6 @@ test('forgotten suggestions ignore laundry and future wear and distinguish missi
   assert.equal(result.forgotten[1].daysSinceLastWorn, 60);
   assert.equal(result.laundryCount, 1);
 });
-test('trip reminders retain deleted references rather than showing false completion', () => {
-  const state = demoState();
-  state.trips = [
-    {
-      id: 'trip',
-      name: 'Алматы',
-      destination: '',
-      startDate: '2026-11-02',
-      endDate: '2026-11-04',
-      itemIds: [state.items[0].id, 'deleted'],
-      outfitIds: [],
-      packedItemIds: [state.items[0].id, 'deleted'],
-      notes: '',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-  const trip = everydaySummary(state, '2026-10-31').trip;
-  assert.equal(trip.total, 2);
-  assert.equal(trip.packed, 1);
-  assert.equal(trip.missing, 1);
-  assert.equal(everydaySummary(state, '2026-11-05').trip, null);
-});
 test('quick search uses only metadata and creates safe internal links', () => {
   const state = demoState();
   state.items[0].name = 'Тёплая рубашка <script>';
@@ -70,6 +48,7 @@ test('quick search uses only metadata and creates safe internal links', () => {
   );
   assert.ok(!JSON.stringify(result).includes('secret-photo-data'));
   assert.equal(searchCloset(emptyState(), 'теплая').length, 0);
+  assert.equal(searchCloset(state, 'чемодан', { kind: 'section' }).length, 0);
   assert.equal(searchCloset(state, 'бренд', { kind: 'outfit' }).length, 0);
   assert.ok(searchCloset(state, 'бренд', { kind: 'item' }).length > 0);
 });

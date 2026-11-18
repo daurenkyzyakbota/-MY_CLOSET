@@ -1,4 +1,5 @@
-import CollectionsPage from '@/components/pages/collections-page.jsx';
+import { redirect } from 'next/navigation';
 
-export const metadata = { title: 'Коллекции и поездки' };
-export default CollectionsPage;
+export default function CollectionsRedirect() {
+  redirect('/wardrobe');
+}

@@ -22,7 +22,6 @@ const navigation = [
   { href: '/shopping-list', key: 'shopping', label: 'Покупки', icon: 'shopping' },
   { href: '/favorites', key: 'favorites', label: 'Избранное', icon: 'heart' },
   { href: '/calendar', key: 'calendar', label: 'Календарь', icon: 'calendar' },
-  { href: '/collections', key: 'collections', label: 'Коллекции и поездки', icon: 'briefcase' },
   { href: '/insights', key: 'insights', label: 'История и статистика', icon: 'chart' },
   { href: '/community', key: 'community', label: 'Сообщество', icon: 'users' },
   { href: '/messages', key: 'messages', label: 'Сообщения', icon: 'message' },
@@ -76,13 +75,6 @@ const moreItems = [
     label: 'Аккаунт',
     icon: 'user',
     description: 'Вход и облачный гардероб',
-  },
-  {
-    href: '/collections',
-    key: 'collections',
-    label: 'Коллекции и поездки',
-    icon: 'briefcase',
-    description: 'Капсулы и список вещей в чемодан',
   },
   {
     href: '/insights',

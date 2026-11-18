@@ -1,6 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useMemo, useState } from 'react';
+import WearPhotoField from '@/components/forms/wear-photo-field.jsx';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { localDate, outfitStatus, validDate, WEAR_ITEM_LIMIT } from '@/lib/data/model.js';
@@ -23,19 +26,21 @@ const dateLabel = (date) =>
     year: 'numeric',
   });
 
-function WearForm({ onClose }) {
+function WearForm({ initialDate, onClose }) {
   const { state, markWorn } = useCloset();
-  const [date, setDate] = useState(localDate());
+  const [date, setDate] = useState(initialDate || localDate());
   const [outfitId, setOutfitId] = useState('');
   const [itemIds, setItemIds] = useState([]);
   const [notes, setNotes] = useState('');
+  const [photo, setPhoto] = useState('');
+  const [processing, setProcessing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const available = state.items.filter((item) => item.available);
   const outfits = state.outfits.filter((outfit) => outfitStatus(outfit, state.items).complete);
   async function save(event) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || processing) return;
     setError('');
     if (!validDate(date) || date > localDate()) {
       setError('Укажите сегодняшний или прошедший день.');
@@ -43,7 +48,13 @@ function WearForm({ onClose }) {
     }
     setBusy(true);
     try {
-      await markWorn({ date, outfitId, ...(outfitId ? {} : { itemIds }), notes: notes.trim() });
+      await markWorn({
+        date,
+        outfitId,
+        ...(outfitId ? {} : { itemIds }),
+        notes: notes.trim(),
+        photo,
+      });
       onClose();
     } catch (cause) {
       setError(cause.message);
@@ -136,6 +147,7 @@ function WearForm({ onClose }) {
               placeholder="Например, прогулка в парке"
             />
           </Field>
+          <WearPhotoField photo={photo} onChange={setPhoto} onProcessingChange={setProcessing} />
         </fieldset>
         {error && (
           <p className="form-error" role="alert">
@@ -151,7 +163,7 @@ function WearForm({ onClose }) {
           >
             Отмена
           </AppButton>
-          <AppButton className="button button-primary" type="submit" disabled={busy}>
+          <AppButton className="button button-primary" type="submit" disabled={busy || processing}>
             {busy ? 'Сохраняем…' : 'Сохранить отметку'}
           </AppButton>
         </div>
@@ -160,14 +172,145 @@ function WearForm({ onClose }) {
   );
 }
 
-export default function InsightsPage() {
+function WearPhotoEditor({ record, onClose }) {
+  const { saveWearPhoto } = useCloset();
+  const [photo, setPhoto] = useState(record.photo || '');
+  const [processing, setProcessing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const removing = Boolean(record.photo && !photo);
+  const changed = photo !== (record.photo || '');
+
+  async function save(event) {
+    event.preventDefault();
+    if (!changed || busy || processing) return;
+    setBusy(true);
+    setError('');
+    try {
+      await saveWearPhoto(record.id, photo, { expectedRecord: record });
+      onClose();
+    } catch (cause) {
+      setError(cause.message || 'Не удалось сохранить фотографию.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      title={record.photo ? 'Изменить фото образа' : 'Добавить фото образа'}
+      description={dateLabel(record.date)}
+      onClose={() => {
+        if (!busy) onClose();
+      }}
+    >
+      <form onSubmit={save}>
+        <fieldset className="form-fieldset" disabled={busy}>
+          <WearPhotoField photo={photo} onChange={setPhoto} onProcessingChange={setProcessing} />
+        </fieldset>
+        {removing && <p className="footnote">Отметка носки останется в истории.</p>}
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <div className="form-actions">
+          <AppButton className="btn btn-secondary" disabled={busy} onClick={onClose}>
+            Отмена
+          </AppButton>
+          <AppButton
+            className={removing ? 'btn btn-danger' : 'btn btn-primary'}
+            type="submit"
+            disabled={!changed || busy || processing}
+          >
+            {busy ? 'Сохраняем…' : removing ? 'Удалить фото из истории' : 'Сохранить фото'}
+          </AppButton>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function outfitName(record, outfits) {
+  return record.outfitId
+    ? outfits.find((outfit) => outfit.id === record.outfitId)?.name || 'Образ из истории'
+    : 'Своё сочетание';
+}
+
+function WearRecord({ record, items, outfits, gallery, onView, onEdit, onDelete }) {
+  const date = dateLabel(record.date);
+  return (
+    <article className="settings-card wear-record" data-wear-id={record.id}>
+      {record.photo && (
+        <AppButton
+          className={`wear-photo-open${gallery ? ' wear-gallery-cover' : ''}`}
+          aria-label={`Открыть фото образа за ${date}`}
+          onClick={() => onView(record.id)}
+        >
+          <img src={record.photo} alt="" loading="lazy" decoding="async" />
+        </AppButton>
+      )}
+      <div className="wear-record-content">
+        <div className="wear-record-heading">
+          <div>
+            <p className="eyebrow">{date}</p>
+            <h3>{outfitName(record, outfits)}</h3>
+          </div>
+          {!gallery && (
+            <AppButton
+              className="icon-button"
+              aria-label={`Удалить отметку за ${date}`}
+              onClick={() => onDelete(record)}
+            >
+              <Icon name="trash" />
+            </AppButton>
+          )}
+        </div>
+        {!gallery && (
+          <div className="wear-record-items">
+            {record.itemIds.map((id) => {
+              const item = items.get(id);
+              return (
+                <div className="wear-record-item" key={id}>
+                  <span className="wear-item-art">
+                    {item ? <ItemArt item={item} /> : <Icon name="hanger" />}
+                  </span>
+                  <span>{item?.name || 'Вещь удалена из гардероба'}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {record.notes && <p className="wear-note">{record.notes}</p>}
+        {!gallery && (
+          <AppButton className="btn btn-ghost wear-photo-edit" onClick={() => onEdit(record)}>
+            <Icon name={record.photo ? 'edit' : 'image'} />
+            {record.photo ? 'Изменить фото' : 'Добавить фото'}
+          </AppButton>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function InsightsContent() {
   const { state, ready, removeWear } = useCloset();
+  const router = useRouter();
+  const params = useSearchParams();
   const [adding, setAdding] = useState(false);
+  const [dismissedDate, setDismissedDate] = useState('');
   const [deleting, setDeleting] = useState(null);
+  const [editingPhoto, setEditingPhoto] = useState(null);
+  const [viewingPhotoId, setViewingPhotoId] = useState('');
   const [tab, setTab] = useState('history');
   const [forgotten, setForgotten] = useState(false);
   const [shown, setShown] = useState(20);
   const today = localDate();
+  const dateParam = params.get('date');
+  const selectedDate = validDate(dateParam) && dateParam <= today ? dateParam : '';
+  const openFromLink = selectedDate !== '' && params.get('add') === '1';
+  function closeWearForm() {
+    setAdding(false);
+    if (openFromLink) {
+      setDismissedDate(selectedDate);
+      router.replace(`/insights?date=${selectedDate}`, { scroll: false });
+    }
+  }
   const stats = useMemo(() => getWearStatistics(state, today), [state, today]);
   const recent = useMemo(
     () =>
@@ -183,6 +326,10 @@ export default function InsightsPage() {
         : b.wearCount - a.wearCount || a.item.name.localeCompare(b.item.name, 'ru'),
     );
   const byId = new Map(state.items.map((item) => [item.id, item]));
+  const viewing = state.wearLog.find((record) => record.id === viewingPhotoId && record.photo);
+  const visible = recent.filter(
+    (record) => (!selectedDate || record.date === selectedDate) && (tab !== 'photos' || record.photo),
+  );
   const wornThisMonth = state.wearLog.filter(
     (record) => record.date <= today && record.date.startsWith(today.slice(0, 7)),
   ).length;
@@ -226,9 +373,23 @@ export default function InsightsPage() {
         <AppButton
           className={`wardrobe-chip${tab === 'history' ? ' is-active' : ''}`}
           aria-pressed={tab === 'history'}
-          onClick={() => setTab('history')}
+          onClick={() => {
+            setTab('history');
+            setShown(20);
+          }}
         >
           История выходов
+        </AppButton>
+        <AppButton
+          className={`wardrobe-chip${tab === 'photos' ? ' is-active' : ''}`}
+          aria-pressed={tab === 'photos'}
+          onClick={() => {
+            setTab('photos');
+            setShown(20);
+          }}
+        >
+          <Icon name="image" />
+          Фотодневник
         </AppButton>
         <AppButton
           className={`wardrobe-chip${tab === 'items' ? ' is-active' : ''}`}
@@ -238,63 +399,53 @@ export default function InsightsPage() {
           Вещи и частота
         </AppButton>
       </div>
-      {tab === 'history' ? (
-        recent.length ? (
-          <div className="wear-history">
-            {recent.slice(0, shown).map((record) => (
-              <article
-                className="settings-card wear-record"
-                data-wear-id={record.id}
+      {tab !== 'items' && selectedDate && (
+        <div className="insights-filter">
+          <span>Выходы за {dateLabel(selectedDate)}</span>
+          <Link className="btn btn-secondary" href="/insights" onClick={() => setShown(20)}>
+            Все даты
+          </Link>
+        </div>
+      )}
+      {tab !== 'items' ? (
+        visible.length ? (
+          <div className={`wear-history${tab === 'photos' ? ' wear-photo-gallery' : ''}`}>
+            {visible.slice(0, shown).map((record) => (
+              <WearRecord
                 key={record.id}
-              >
-                <div className="wear-record-heading">
-                  <div>
-                    <p className="eyebrow">{dateLabel(record.date)}</p>
-                    <h3>
-                      {record.outfitId
-                        ? state.outfits.find((outfit) => outfit.id === record.outfitId)?.name ||
-                          'Образ из истории'
-                        : 'Своё сочетание'}
-                    </h3>
-                  </div>
-                  <AppButton
-                    className="icon-button"
-                    aria-label={`Удалить отметку за ${record.date}`}
-                    onClick={() => setDeleting(record)}
-                  >
-                    <Icon name="trash" />
-                  </AppButton>
-                </div>
-                <div className="wear-record-items">
-                  {record.itemIds.map((id) => {
-                    const item = byId.get(id);
-                    return (
-                      <div className="wear-record-item" key={id}>
-                        <span className="wear-item-art">
-                          {item ? <ItemArt item={item} /> : <Icon name="hanger" />}
-                        </span>
-                        <span>{item?.name || 'Вещь удалена из гардероба'}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-                {record.notes && <p className="wear-note">{record.notes}</p>}
-              </article>
+                record={record}
+                items={byId}
+                outfits={state.outfits}
+                gallery={tab === 'photos'}
+                onView={setViewingPhotoId}
+                onEdit={setEditingPhoto}
+                onDelete={setDeleting}
+              />
             ))}
-            {shown < recent.length && (
+            {shown < visible.length && (
               <AppButton
-                className="button button-secondary"
+                className="btn btn-secondary wear-history-more"
                 onClick={() => setShown((value) => value + 20)}
               >
                 Показать ещё
               </AppButton>
             )}
           </div>
+        ) : tab === 'photos' ? (
+          <EmptyState
+            icon="image"
+            title="Здесь будут фото ваших образов"
+            description="Прикрепите фото к новой отметке или к выходу, который уже есть в истории."
+          >
+            <AppButton className="btn btn-secondary" onClick={() => setTab('history')}>
+              Открыть историю
+            </AppButton>
+          </EmptyState>
         ) : (
           <EmptyState
             icon="calendar"
-            title="Каждый выход — часть вашей истории"
-            description="Отметьте, что надели сегодня. Позже здесь появятся любимые сочетания и частота носки."
+            title={selectedDate ? 'За этот день пока нет отметок' : 'Каждый выход — часть вашей истории'}
+            description="Отметьте, что надели, и по желанию добавьте фото образа."
           >
             <AppButton className="button button-primary" onClick={() => setAdding(true)}>
               Добавить первую отметку
@@ -353,18 +504,53 @@ export default function InsightsPage() {
           )}
         </>
       )}
-      {adding && <WearForm onClose={() => setAdding(false)} />}
+      {(adding || (openFromLink && dismissedDate !== selectedDate)) && (
+        <WearForm initialDate={selectedDate} onClose={closeWearForm} />
+      )}
+      {viewing && !editingPhoto && (
+        <Modal
+          title={outfitName(viewing, state.outfits)}
+          description={dateLabel(viewing.date)}
+          onClose={() => setViewingPhotoId('')}
+        >
+          <img className="wear-photo-full" src={viewing.photo} alt="Фото этого образа" />
+          {viewing.notes && <p className="wear-note">{viewing.notes}</p>}
+          <div className="form-actions">
+            <AppButton
+              className="btn btn-secondary"
+              onClick={() => {
+                setViewingPhotoId('');
+                setEditingPhoto(viewing);
+              }}
+            >
+              <Icon name="edit" />
+              Изменить фото
+            </AppButton>
+          </div>
+        </Modal>
+      )}
+      {editingPhoto && (
+        <WearPhotoEditor record={editingPhoto} onClose={() => setEditingPhoto(null)} />
+      )}
       {deleting && (
         <ConfirmDialog
           title="Удалить отметку носки?"
-          description={`Выход за ${dateLabel(deleting.date)} будет удалён из истории. Вещи и образы останутся в гардеробе.`}
+          description={`Из истории исчезнет отметка за ${dateLabel(deleting.date)}${deleting.photo ? ' вместе с фото' : ''}. Вещи и образы останутся в гардеробе.`}
           onClose={() => setDeleting(null)}
           onConfirm={async () => {
-            await removeWear(deleting.id);
+            await removeWear(deleting.id, { expectedRecord: deleting });
             setDeleting(null);
           }}
         />
       )}
     </>
+  );
+}
+
+export default function InsightsPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <InsightsContent />
+    </Suspense>
   );
 }

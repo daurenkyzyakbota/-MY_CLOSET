@@ -3,7 +3,7 @@
 import { AppButton } from '@/components/ui/app-button.jsx';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SLOTS, localDate, monthCells, outfitStatus, validDate } from '@/lib/data/model.js';
 import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { ConfirmDialog, Field, Icon, Loading, Modal, PageHeader } from '@/components/ui/ui.jsx';
@@ -177,6 +177,18 @@ export default function CalendarPage() {
   const [linkDate, setLinkDate] = useState('');
   const [linkError, setLinkError] = useState('');
   const usedLink = useRef(false);
+  const historyByDate = useMemo(() => {
+    const dates = new Map();
+    for (const record of state.wearLog) {
+      const day = dates.get(record.date) || { records: 0, photos: 0 };
+      day.records++;
+      if (record.photo) day.photos++;
+      dates.set(record.date, day);
+    }
+    return dates;
+  }, [state.wearLog]);
+  const selectedHistory = historyByDate.get(selectedDate);
+  const today = localDate();
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setLinkOutfit(params.get('outfit') || '');
@@ -281,7 +293,11 @@ export default function CalendarPage() {
                   type="button"
                   data-date={date}
                   className={`calendar-cell${selectedDate === date ? ' is-active' : ''}${localDate() === date ? ' is-today' : ''}`}
-                  aria-label={`${dateLabel(date)}${state.plans.some((plan) => plan.date === date) ? ', есть планы' : ''}`}
+                  aria-label={[
+                    dateLabel(date),
+                    state.plans.some((plan) => plan.date === date) && 'есть планы',
+                    historyByDate.get(date)?.photos > 0 && 'есть фото образа',
+                  ].filter(Boolean).join(', ')}
                   aria-pressed={selectedDate === date}
                   aria-current={localDate() === date ? 'date' : undefined}
                   onClick={() => selectDate(date)}
@@ -297,6 +313,9 @@ export default function CalendarPage() {
                           title={SLOTS[plan.slot]}
                         />
                       ))}
+                    {historyByDate.get(date)?.photos > 0 && (
+                      <span className="calendar-photo-dot" title="Есть фото образа" />
+                    )}
                   </span>
                 </AppButton>
               ) : (
@@ -369,6 +388,21 @@ export default function CalendarPage() {
               </div>
             );
           })}
+          {selectedDate <= today && (
+            <div className="calendar-entry calendar-wear-history">
+              <h3>Фото дня</h3>
+              {selectedHistory?.photos > 0 && (
+                <p className="item-meta">Фото образов за день: {selectedHistory.photos}</p>
+              )}
+              <Link
+                className="btn btn-secondary"
+                href={`/insights?date=${selectedDate}${selectedHistory ? '' : '&add=1'}`}
+              >
+                <Icon name="image" />
+                {selectedHistory ? 'Открыть историю за день' : 'Отметить носку с фото'}
+              </Link>
+            </div>
+          )}
         </aside>
       </div>
       {editing && (

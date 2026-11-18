@@ -60,6 +60,25 @@ test('external photo transport round trips the exact original URI in active and 
   assert.deepEqual(original, before);
 });
 
+test('wear photos round trip as private account objects without changing photo-free records', async () => {
+  const original = snapshot();
+  const entry = { id: 'day-look', date: '2026-11-06', outfitId: '', itemIds: ['one'], notes: '' };
+  original.wearLog = [
+    { ...entry, photo: photoB },
+    { ...entry, id: 'earlier-look', date: '2026-11-05' },
+  ];
+  const { wire, objects } = await externalized(original);
+  assert.equal(objects.size, 2, 'the same photo in a garment and a wear record uses one object');
+  assert.equal(wire.wearLog[0].photo, PHOTO_REFERENCE_PREFIX + await photoDigest(photoB));
+  assert.equal(Object.hasOwn(wire.wearLog[1], 'photo'), false);
+  assert.equal(original.wearLog[0].photo, photoB);
+
+  const describe = async (ids) => ids.map((id) => ({ id, characters: objects.get(id).length }));
+  assert.deepEqual((await validatePhotoSnapshot(wire, describe)).snapshot, wire);
+  await assert.rejects(validatePhotoSnapshot({ ...wire, items: [], trash: [] }), /этом аккаунте/);
+  assert.deepEqual(await hydrateSnapshotPhotos(wire, { download: async (id) => objects.get(id) }), original);
+});
+
 test('existing objects are reused and cancellation after metadata discovery prevents any upload', async () => {
   const state = snapshot();
   const existing = await photoDigest(photoA);

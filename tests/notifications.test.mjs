@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { NotificationError, pushEndpoint, pushSubscription, notificationPreferences, genericPush } from '../lib/notifications/validation.js';
-import { sendWebPush } from '../lib/notifications/web-push.js';
+import { pushConfiguration, sendWebPush } from '../lib/notifications/web-push.js';
 import { createNotificationHandlers } from '../lib/notifications/handlers.js';
 import { createSocialService } from '../lib/social/service.js';
 import { createNotificationService } from '../lib/notifications/service.js';
@@ -66,8 +66,12 @@ test('lock-screen payloads contain no message text, actor name, outfit name or p
 test('real WebCrypto encryption creates RFC aes128gcm/VAPID transport and classifies dead subscriptions', async () => {
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
   const key = await crypto.subtle.exportKey('jwk', pair.privateKey);
-  const config = { available: true, publicKey: base64url(await crypto.subtle.exportKey('raw', pair.publicKey)),
-    privateKey: key.d, subject: 'https://mycloset.test' };
+  const config = pushConfiguration({
+    MYCLOSET_PUSH_PUBLIC_KEY: base64url(await crypto.subtle.exportKey('raw', pair.publicKey)),
+    MYCLOSET_PUSH_PRIVATE_KEY: key.d,
+    MYCLOSET_PUSH_SUBJECT: 'https://mycloset.test',
+  });
+  assert.equal(config.subscriptionAvailable, true);
   let calls = 0;
   const result = await sendWebPush(await subscription(), genericPush('message', { messageId: 'id', conversationId: 'conversation' }), {
     configuration: config,
@@ -94,6 +98,58 @@ function fixture() {
 const request = (path, method = 'GET', body, headers = {}) => new Request('https://mycloset.test/api/notifications/' + path, {
   method, headers: { Origin: 'https://mycloset.test', 'X-MyCloset-Account': user.id, ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
   ...(body ? { body: JSON.stringify(body) } : {}),
+});
+
+test('localhost registers authenticated browsers with the shared public key and leaves sending to the cloud', async () => {
+  const device = await subscription();
+  const { keys: { p256dh: publicKey } } = await subscription();
+  const config = pushConfiguration({ MYCLOSET_PUSH_PUBLIC_KEY: publicKey });
+  assert.equal(config.subscriptionAvailable, true);
+  assert.equal(config.available, false);
+  assert.equal(config.publicKey, publicKey);
+
+  const invalid = new Uint8Array(65);
+  invalid[0] = 4;
+  for (const key of [publicKey + '=', base64url(invalid)]) {
+    const rejected = pushConfiguration({ MYCLOSET_PUSH_PUBLIC_KEY: key });
+    assert.equal(rejected.subscriptionAvailable, false);
+    assert.equal(rejected.publicKey, '');
+  }
+
+  const events = [];
+  const query = async (sql) => {
+    events.push(sql);
+    if (sql.startsWith('SELECT count(*)')) return { rows: [{ total: 1 }] };
+    if (sql.includes('SELECT id FROM neon_auth.session')) return { rows: [{ id: sessionId }] };
+    return { rows: [] };
+  };
+  const service = createNotificationService({
+    pool: { query, connect: async () => ({ query, release() {} }) },
+    configuration: () => config,
+    send: () => assert.fail('Local server must not send push with only the public key.'),
+  });
+  const origin = 'http://localhost:3000';
+  const api = createNotificationHandlers({ getUser: async () => ({ ...user, sessionId }), service });
+  const registration = await api.subscriptions.POST(new Request(origin + '/api/notifications/subscriptions', {
+    method: 'POST',
+    headers: { Origin: origin, 'X-MyCloset-Account': user.id, 'Content-Type': 'application/json' },
+    body: JSON.stringify(device),
+  }));
+  assert.equal(registration.status, 200);
+  const preferences = await registration.json();
+  assert.equal(preferences.available, true);
+  assert.equal(preferences.publicKey, publicKey);
+  assert.ok(events.some((sql) => sql.startsWith('INSERT INTO public.mycloset_push_subscriptions')));
+
+  const before = events.length;
+  const empty = { sent: 0, failed: 0, expired: 0 };
+  assert.deepEqual(await service.message('test-message'), empty);
+  assert.deepEqual(await service.dispatch(), { ok: true, ...empty });
+  assert.deepEqual(await sendWebPush(device, { title: 'MyCloset' }, {
+    configuration: config,
+    fetcher: () => assert.fail('Local server must not contact push providers.'),
+  }), { status: 'unavailable' });
+  assert.equal(events.length, before);
 });
 
 test('notification settings and subscriptions require the verified matching account and same origin', async () => {

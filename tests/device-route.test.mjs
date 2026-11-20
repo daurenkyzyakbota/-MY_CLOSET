@@ -38,6 +38,26 @@ test('the public device link retains the external hostname and HTTPS', async () 
   assert.equal(data.preferredPhoneUrl, 'https://closet.example.com/');
 });
 
+test('the Windows launcher only offers links on the machine running the server', async () => {
+  const previous = process.env.MYCLOSET_LOCAL_LOOPBACK;
+  process.env.MYCLOSET_LOCAL_LOOPBACK = '1';
+  try {
+    const request = new Request('http://127.0.0.1:3000/api/device', {
+      headers: { host: 'localhost:3000' },
+    });
+    assert.deepEqual(await GET(request).json(), {
+      localUrl: 'http://localhost:3000/',
+      phoneUrls: [],
+      preferredPhoneUrl: '',
+      isHosted: false,
+      loopbackOnly: true,
+    });
+  } finally {
+    if (previous === undefined) delete process.env.MYCLOSET_LOCAL_LOOPBACK;
+    else process.env.MYCLOSET_LOCAL_LOOPBACK = previous;
+  }
+});
+
 test('a VirtualBox host-only MAC is ranked below a localized physical Wi-Fi adapter', () => {
   const data = links({
     'Ethernet 2': [adapter('192.168.56.1', '0a:00:27:00:00:06')],

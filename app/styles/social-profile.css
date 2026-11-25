@@ -1,0 +1,414 @@
+.closet-profile-page {
+  width: min(100%, 1040px);
+  margin-inline: auto;
+}
+
+.closet-profile-back {
+  margin-block: 0 12px;
+}
+
+.closet-profile-hero {
+  overflow: hidden;
+  margin-block-end: 26px;
+  padding: clamp(16px, 4vw, 34px);
+  background: radial-gradient(ellipse at 0 0, var(--rose-soft), transparent 58%), var(--paper);
+}
+
+.closet-profile-overview,
+.closet-profile-account-identity {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 4vw, 28px);
+}
+
+.closet-profile-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  padding: 4px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.closet-profile-avatar .social-avatar-large {
+  width: clamp(64px, 14vw, 116px);
+  height: clamp(64px, 14vw, 116px);
+  border: 0;
+  border-radius: 50%;
+}
+
+.closet-profile-identity {
+  min-width: 0;
+}
+
+.closet-profile-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.closet-profile-name :is(h1, h2) {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(24px, 4vw, 40px);
+  overflow-wrap: anywhere;
+}
+
+.closet-profile-visibility {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--appearance-line);
+  border-radius: 8px;
+  background: var(--appearance-surface);
+  color: var(--rose-dark);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.closet-profile-handle {
+  margin: 3px 0 10px;
+  font-size: 14px;
+}
+
+.closet-profile-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 18px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.closet-profile-stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.closet-profile-stats :is(dt, dd) {
+  margin: 0;
+  font-weight: 500;
+}
+
+.closet-profile-stats dd {
+  order: -1;
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.closet-profile-about {
+  margin-block-start: 18px;
+}
+
+.closet-profile-about .social-profile-bio {
+  max-width: 70ch;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.closet-profile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.closet-profile-about .social-profile-bio + .closet-profile-meta {
+  margin-block-start: 8px;
+}
+
+.closet-profile-meta li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.closet-profile-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 20px;
+  padding-block-start: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.closet-profile-actions > .social-notice {
+  flex-basis: 100%;
+}
+
+.closet-profile-actions .social-person-actions {
+  margin: 0;
+}
+
+.closet-profile-posts {
+  margin-block: 24px 0;
+}
+
+.closet-profile-posts-heading,
+.closet-profile-post-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.closet-profile-posts-heading {
+  justify-content: space-between;
+  margin-block-end: 12px;
+}
+
+.closet-profile-posts-heading h2 {
+  margin: 0;
+}
+
+.closet-profile-views {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.closet-profile-views .app-button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 9px;
+  border-radius: 8px;
+}
+
+.closet-profile-views .app-button[aria-pressed='true'] {
+  background: var(--rose-soft);
+  color: var(--rose-dark);
+}
+
+.closet-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(8px, 2vw, 16px);
+}
+
+.closet-profile-tile {
+  display: grid;
+  align-content: start;
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--paper);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.closet-profile-tile:hover {
+  border-color: var(--appearance-accent);
+  color: var(--rose-dark);
+}
+
+.closet-profile-tile-media {
+  position: relative;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  min-width: 0;
+  aspect-ratio: 4 / 3;
+  background: var(--appearance-inset);
+  color: var(--rose-dark);
+}
+
+.closet-profile-tile-art {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.closet-profile-tile-art :is(img, svg:not(.icon)) {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.closet-profile-tile-visibility {
+  position: absolute;
+  inset: 6px auto auto 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 12px);
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.closet-profile-tile-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.closet-profile-tile-caption strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.closet-profile-tile-caption .icon {
+  align-self: center;
+  color: var(--rose-dark);
+}
+
+.closet-profile-empty .btn {
+  margin-block-start: 5px;
+}
+
+.closet-profile-editor:not(.is-in-dialog) {
+  width: min(100%, 740px);
+  margin-inline: auto;
+  padding: clamp(16px, 4vw, 28px);
+}
+
+.closet-profile-editor > h2 {
+  margin: 0 0 15px;
+}
+
+.closet-profile-avatar-editor {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--appearance-inset);
+}
+
+.closet-profile-avatar-editor .social-avatar-large,
+.closet-profile-account-identity .social-avatar-large {
+  width: 62px;
+  height: 62px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  font-size: 23px;
+}
+
+.closet-profile-avatar-editor h3,
+.closet-profile-avatar-editor .footnote {
+  margin: 0;
+}
+
+.closet-profile-photo-actions,
+.closet-profile-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-block: 5px;
+}
+
+.closet-profile-avatar-editor .btn {
+  min-height: 34px;
+}
+
+.closet-profile-edit-section {
+  display: grid;
+  gap: 10px;
+  margin-block-start: 16px;
+}
+
+.closet-profile-edit-section h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.closet-profile-edit-section .form-grid {
+  gap: 10px 12px;
+}
+
+.closet-profile-private-choice {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  align-items: start;
+  gap: 9px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--appearance-inset);
+  cursor: pointer;
+}
+
+.closet-profile-private-choice small,
+.closet-profile-account-identity .social-handle {
+  display: block;
+  color: var(--muted);
+}
+
+.closet-profile-private-choice input {
+  align-self: center;
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  accent-color: var(--rose-dark);
+}
+
+.closet-profile-account-identity {
+  gap: 12px;
+  margin-block: 10px;
+  overflow-wrap: anywhere;
+}
+
+.closet-profile-account-identity p {
+  margin: 0;
+}
+
+.closet-profile-settings-link {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--rose-dark);
+  font-size: 13px;
+}
+
+@media (max-width: 650px) {
+  .closet-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .closet-profile-actions > .social-person-actions {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .closet-profile-tile-caption .icon {
+    display: none;
+  }
+
+  .closet-profile-actions .btn {
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .closet-profile-avatar-editor {
+    padding: 9px;
+  }
+}

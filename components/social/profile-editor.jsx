@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useSocial } from '@/components/providers/social-provider.jsx';
 import { AppButton } from '@/components/ui/app-button.jsx';
@@ -44,7 +43,7 @@ async function avatarThumbnail(file) {
   }
 }
 
-export function ProfileEditor({ profile, onSaved, onCancel }) {
+export function ProfileEditor({ profile, onSaved, onCancel, inDialog = false }) {
   const social = useSocial();
   const [draft, setDraft] = useState(() => ({
     username: profile?.username || '',
@@ -113,20 +112,13 @@ export function ProfileEditor({ profile, onSaved, onCancel }) {
   return (
     <form
       id="social-profile-form"
-      className="social-profile-editor social-surface"
+      className={'closet-profile-editor' + (inDialog ? ' is-in-dialog' : ' social-surface')}
       onSubmit={submit}
+      aria-busy={busy || processing}
     >
-      <div className="social-section-heading">
-        <div>
-          <p className="eyebrow">ВАШЕ МЕСТО В СООБЩЕСТВЕ</p>
-          <h2>{profile ? 'Редактировать профиль' : 'Создайте свой профиль'}</h2>
-          <p className="footnote">
-            Личные вещи и резервные копии останутся приватными. Публикуйте только выбранные образы.
-          </p>
-        </div>
-      </div>
+      {!inDialog && <h2>{profile ? 'Редактировать профиль' : 'Создать профиль'}</h2>}
       <fieldset className="form-fieldset" disabled={busy || processing}>
-        <div className="social-avatar-editor">
+        <div className="closet-profile-avatar-editor">
           <ProfileAvatar
             profile={{
               ...profile,
@@ -136,107 +128,110 @@ export function ProfileEditor({ profile, onSaved, onCancel }) {
             large
           />
           <div>
-            <label className="btn btn-secondary social-upload">
-              <Icon name="plus" />
-              {processing ? 'Обрабатываем…' : 'Выбрать фото'}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={changePhoto}
-                disabled={busy || processing}
-              />
-            </label>
-            {(avatar || (avatar === null && profile?.avatar)) && (
-              <AppButton className="btn btn-ghost" onClick={() => setAvatar('')}>
-                Убрать фото
-              </AppButton>
-            )}
-            <p className="footnote">Квадратный аватар 256 × 256. JPG, PNG или WebP.</p>
+            <h3>Фото профиля</h3>
+            <div className="closet-profile-photo-actions">
+              <label className="btn btn-secondary social-upload">
+                <Icon name="image" />
+                {processing ? 'Обрабатываем…' : 'Выбрать фото'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={changePhoto}
+                />
+              </label>
+              {(avatar || (avatar === null && profile?.avatar)) && (
+                <AppButton className="btn btn-ghost" onClick={() => setAvatar('')}>
+                  Убрать фото
+                </AppButton>
+              )}
+            </div>
+            <p className="footnote">JPG, PNG или WebP до 12 МБ.</p>
           </div>
         </div>
-        <div className="form-grid">
-          <Field label="Имя *">
-            <input
-              name="name"
-              required
-              maxLength={80}
-              autoComplete="name"
-              value={draft.name}
-              onChange={(event) => set('name', event.target.value)}
-            />
-          </Field>
-          <Field
-            label="Уникальный ник *"
-            hint="От 3 до 30 латинских букв, цифр и _. Ник виден в ссылке на профиль."
-          >
-            <input
-              name="username"
-              required
-              minLength={3}
-              maxLength={30}
-              pattern="[a-z0-9_]{3,30}"
-              autoCapitalize="none"
-              spellCheck={false}
-              autoComplete="off"
-              placeholder="bota_style"
-              value={draft.username}
-              onChange={(event) => set('username', event.target.value.toLowerCase())}
-            />
-          </Field>
-          <Field label="Город · необязательно">
-            <input
-              name="city"
-              maxLength={120}
-              autoComplete="address-level2"
-              value={draft.city}
-              onChange={(event) => set('city', event.target.value)}
-            />
-          </Field>
-          <Field label="Любимые стили">
-            <input
-              name="styles"
-              maxLength={200}
-              placeholder="Минимализм, классика, casual…"
-              value={draft.styles}
-              onChange={(event) => set('styles', event.target.value)}
-            />
-          </Field>
-          <Field label="О себе" className="field-full">
-            <textarea
-              name="bio"
-              maxLength={500}
-              rows={3}
-              placeholder="Расскажите, что вдохновляет ваш стиль"
-              value={draft.bio}
-              onChange={(event) => set('bio', event.target.value)}
-            />
-          </Field>
-        </div>
-        <section className="social-preferences">
-          <h3>Кто может видеть и писать</h3>
-          <label className="social-check">
+        <section className="closet-profile-edit-section">
+          <h3>Данные профиля</h3>
+          <div className="form-grid">
+            <Field label="Имя в сообществе *">
+              <input
+                name="name"
+                required
+                maxLength={80}
+                autoComplete="name"
+                value={draft.name}
+                onChange={(event) => set('name', event.target.value)}
+              />
+            </Field>
+            <Field label="Ник *" hint="От 3 до 30 латинских букв, цифр и _. Ник используется в ссылке.">
+              <input
+                name="username"
+                required
+                minLength={3}
+                maxLength={30}
+                pattern="[a-z0-9_]{3,30}"
+                autoCapitalize="none"
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="bota_style"
+                value={draft.username}
+                onChange={(event) => set('username', event.target.value.toLowerCase())}
+              />
+            </Field>
+            <Field label="О себе" className="field-full" hint={draft.bio.length + ' из 500 символов'}>
+              <textarea
+                name="bio"
+                maxLength={500}
+                rows={3}
+                placeholder="Что вдохновляет ваш стиль?"
+                value={draft.bio}
+                onChange={(event) => set('bio', event.target.value)}
+              />
+            </Field>
+            <Field label="Город">
+              <input
+                name="city"
+                maxLength={120}
+                autoComplete="address-level2"
+                value={draft.city}
+                onChange={(event) => set('city', event.target.value)}
+              />
+            </Field>
+            <Field label="Любимые стили">
+              <input
+                name="styles"
+                maxLength={200}
+                placeholder="Минимализм, классика, casual…"
+                value={draft.styles}
+                onChange={(event) => set('styles', event.target.value)}
+              />
+            </Field>
+          </div>
+        </section>
+        <section className="closet-profile-edit-section">
+          <h3>Конфиденциальность</h3>
+          <label className="closet-profile-private-choice">
+            <Icon name="lock" size={20} />
+            <span>
+              <strong>Закрытый профиль</strong>
+              <small>
+                Имя, ник и фото остаются видимыми. Описание и образы доступны принятым друзьям
+                в пределах видимости публикаций.
+              </small>
+            </span>
             <input
               name="private"
               type="checkbox"
               checked={draft.private}
               onChange={(event) => set('private', event.target.checked)}
             />
-            <span>
-              <strong>Закрытый профиль</strong>
-              <small>
-                Основная информация видна всем. Образы доступны вам и принятым друзьям с учётом
-                видимости публикации.
-              </small>
-            </span>
           </label>
-          <Field label="Личные сообщения">
+          <Field label="Кто может писать вам">
             <select
               name="allowMessages"
               value={draft.allowMessages}
               onChange={(event) => set('allowMessages', event.target.value)}
             >
-              <option value="friends">Только от друзей</option>
-              <option value="everyone">От всех участников</option>
+              <option value="friends">Только друзья</option>
+              <option value="everyone">Все участники</option>
             </select>
           </Field>
         </section>
@@ -252,12 +247,6 @@ export function ProfileEditor({ profile, onSaved, onCancel }) {
           {busy ? 'Сохраняем…' : profile ? 'Сохранить профиль' : 'Создать профиль'}
         </AppButton>
       </div>
-      {profile && (
-        <p className="footnote">
-          Вход, синхронизация и управление аккаунтом находятся в разделе{' '}
-          <Link href="/account">«Аккаунт»</Link>.
-        </p>
-      )}
     </form>
   );
 }

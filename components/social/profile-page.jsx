@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useSocial } from '@/components/providers/social-provider.jsx';
 import { AppButton } from '@/components/ui/app-button.jsx';
-import { Icon, PageHeader } from '@/components/ui/ui.jsx';
+import { Icon, ItemArt, Modal } from '@/components/ui/ui.jsx';
 import {
   PersonActions,
   ProfileAvatar,
@@ -15,71 +16,83 @@ import {
   useSocialCollection,
 } from './social-common.jsx';
 import PostCard from './post-card.jsx';
+import ProfileEditor from './profile-editor.jsx';
 
-export function ProfileHeader({ profile, onEdit, onChanged }) {
+function profilePath(username) {
+  return '/people/' + encodeURIComponent(username);
+}
+
+export function ProfileHeader({ profile, onEdit, onChanged, pageHeading = false }) {
   const social = useSocial();
   const [sharing, setSharing] = useState(false);
   const self = profile.relationship === 'self' || social.user?.id === profile.id;
+  const NameHeading = pageHeading ? 'h1' : 'h2';
+
   return (
-    <section className="social-profile-hero social-surface">
-      <div className="social-profile-cover" aria-hidden="true">
-        <span>MY STYLE, MY STORY</span>
-      </div>
-      <div className="social-profile-content">
-        <div className="social-profile-top">
+    <section className="closet-profile-hero social-surface">
+      <div className="closet-profile-overview">
+        <div className="closet-profile-avatar">
           <ProfileAvatar profile={profile} large />
-          <div className="social-profile-controls">
-            <AppButton className="btn btn-secondary" onClick={() => setSharing(true)}>
-              Поделиться профилем
-            </AppButton>
-            {self &&
-              (onEdit ? (
-                <AppButton className="btn btn-primary" onClick={onEdit}>
-                  <Icon name="edit" />
-                  Редактировать
-                </AppButton>
-              ) : (
-                <Link className="btn btn-primary" href="/community?tab=profile">
-                  Мой профиль
-                </Link>
-              ))}
+        </div>
+        <div className="closet-profile-identity">
+          <div className="closet-profile-name">
+            <NameHeading>{profile.name}</NameHeading>
+            {(self || profile.private) && (
+              <span className="closet-profile-visibility">
+                <Icon name={profile.private ? 'lock' : 'users'} size={16} />
+                {profile.private ? 'Закрытый профиль' : 'Открытый профиль'}
+              </span>
+            )}
           </div>
+          <p className="social-handle closet-profile-handle">@{profile.username}</p>
+          <dl className="closet-profile-stats">
+            <div>
+              <dt>{socialCountWord(profile.postCount, 'публикация', 'публикации', 'публикаций')}</dt>
+              <dd>{profile.postCount || 0}</dd>
+            </div>
+            <div>
+              <dt>{socialCountWord(profile.friendCount, 'друг', 'друга', 'друзей')}</dt>
+              <dd>{profile.friendCount || 0}</dd>
+            </div>
+          </dl>
         </div>
-        <div className="social-profile-heading">
-          <h2>{profile.name}</h2>
-          <span className="social-handle">@{profile.username}</span>
-          {profile.private && <span className="tag">Закрытый профиль</span>}
-        </div>
-        {profile.bio && <p className="social-profile-bio">{profile.bio}</p>}
-        <div className="social-profile-meta">
-          {profile.city && (
-            <span>
-              <Icon name="pin" />
-              {profile.city}
-            </span>
+      </div>
+      {(profile.bio || profile.city || profile.styles) && (
+        <div className="closet-profile-about">
+          {profile.bio && <p className="social-profile-bio">{profile.bio}</p>}
+          {(profile.city || profile.styles) && (
+            <ul className="closet-profile-meta">
+              {profile.city && <li><Icon name="pin" size={18} /> {profile.city}</li>}
+              {profile.styles && <li><Icon name="sparkle" size={18} /> {profile.styles}</li>}
+            </ul>
           )}
-          {profile.styles && (
-            <span>
-              <Icon name="sparkle" />
-              {profile.styles}
-            </span>
-          )}
         </div>
-        <div className="social-profile-stats">
-          <span>
-            <strong>{profile.postCount || 0}</strong>{' '}
-            {socialCountWord(profile.postCount, 'публикация', 'публикации', 'публикаций')}
-          </span>
-          <span>
-            <strong>{profile.friendCount || 0}</strong>{' '}
-            {socialCountWord(profile.friendCount, 'друг', 'друга', 'друзей')}
-          </span>
-        </div>
+      )}
+      <div className="closet-profile-actions">
+        {self && (
+          onEdit ? (
+            <AppButton className="btn btn-primary" onClick={onEdit}>
+              <Icon name="edit" /> Редактировать профиль
+            </AppButton>
+          ) : (
+            <Link className="btn btn-primary" href="/community?tab=profile">
+              <Icon name="edit" /> Редактировать профиль
+            </Link>
+          )
+        )}
         {!self && <PersonActions person={profile} includeMenu onChanged={onChanged} />}
+        <AppButton className="btn btn-secondary" onClick={() => setSharing(true)}>
+          <Icon name="share" /> Поделиться
+        </AppButton>
+        {self && (
+          <Link className="btn btn-ghost" href="/account">
+            <Icon name="settings" /> Аккаунт
+          </Link>
+        )}
       </div>
       {sharing && (
         <ShareDialog
-          path={`/people/${encodeURIComponent(profile.username)}`}
+          path={profilePath(profile.username)}
           title="Поделиться профилем"
           onClose={() => setSharing(false)}
         />
@@ -88,67 +101,176 @@ export function ProfileHeader({ profile, onEdit, onChanged }) {
   );
 }
 
-function ProfilePosts({ username }) {
+function ProfilePostPreview({ post }) {
+  const item = post.snapshot?.items?.find((value) => value.photo) || post.snapshot?.items?.[0];
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <Link className="closet-profile-tile" href={'/community?post=' + encodeURIComponent(post.id)}>
+      <div className="closet-profile-tile-media">
+        <div className="closet-profile-tile-art" aria-hidden="true">
+          {item?.photo && !failed ? (
+            <img src={item.photo} alt="" loading="lazy" onError={() => setFailed(true)} />
+          ) : item ? (
+            <ItemArt item={{ ...item, photo: '' }} />
+          ) : (
+            <Icon name="outfits" size={44} />
+          )}
+        </div>
+        {post.owned && post.visibility !== 'public' && (
+          <span className="closet-profile-tile-visibility">
+            <Icon name={post.visibility === 'private' ? 'lock' : 'users'} size={15} />
+            {post.visibility === 'private' ? 'Только мне' : 'Друзьям'}
+          </span>
+        )}
+      </div>
+      <div className="closet-profile-tile-caption">
+        <strong>{post.title}</strong>
+        <Icon name="arrow" size={18} />
+      </div>
+    </Link>
+  );
+}
+
+function ProfilePosts({ username, self }) {
   const social = useSocial();
   const posts = useSocialCollection('posts.list', { scope: 'profile', username }, 'posts', {
     enabled: social.ready && social.configured !== false,
   });
+  const [view, setView] = useState('grid');
+  const publications = posts.data?.posts || [];
+
   function updated(post) {
     posts.setData((current) => ({
       ...current,
       posts: (current?.posts || []).map((value) => (value.id === post.id ? post : value)),
     }));
   }
+
+  function deleted(id) {
+    posts.setData((current) => ({
+      ...current,
+      posts: (current?.posts || []).filter((value) => value.id !== id),
+    }));
+  }
+
   return (
-    <section className="social-profile-posts">
-      <div className="social-section-heading">
-        <h2>Опубликованные образы</h2>
-        <AppButton className="btn btn-ghost" onClick={posts.reload} disabled={posts.loading}>
-          <Icon name="refresh" />
-          Обновить
-        </AppButton>
+    <section className="closet-profile-posts" aria-labelledby="profile-publications">
+      <div className="closet-profile-posts-heading">
+        <h2 id="profile-publications">Публикации</h2>
+        <div className="closet-profile-post-tools">
+          {publications.length > 0 && (
+            <div className="closet-profile-views" role="group" aria-label="Вид публикаций">
+              <AppButton className="btn btn-ghost" aria-pressed={view === 'grid'} onClick={() => setView('grid')}>
+                <Icon name="image" size={18} /> Сетка
+              </AppButton>
+              <AppButton className="btn btn-ghost" aria-pressed={view === 'list'} onClick={() => setView('list')}>
+                <Icon name="menu" size={18} /> Список
+              </AppButton>
+            </div>
+          )}
+          <AppButton
+            className="icon-button"
+            aria-label="Обновить публикации"
+            title="Обновить публикации"
+            onClick={posts.reload}
+            disabled={posts.loading}
+          >
+            <Icon name="refresh" />
+          </AppButton>
+        </div>
       </div>
-      <SocialNotice error onRetry={posts.reload}>
-        {posts.error}
-      </SocialNotice>
-      {posts.loading && (
-        <p className="social-loading" role="status">
-          Загружаем образы…
-        </p>
-      )}
+      <SocialNotice error onRetry={posts.reload}>{posts.error}</SocialNotice>
+      {posts.loading && <p className="social-loading" role="status">Загружаем образы…</p>}
       {!posts.loading && posts.data?.posts?.length === 0 && (
-        <div className="social-empty-inline">
+        <div className="closet-profile-empty social-empty-inline">
           <Icon name="outfits" size={30} />
-          <p>Доступных публикаций пока нет.</p>
+          <p>{self ? 'Здесь появятся ваши опубликованные образы.' : 'Доступных публикаций пока нет.'}</p>
+          {self && <Link href="/outfits" className="btn btn-primary">Открыть мои образы</Link>}
         </div>
       )}
-      <div className="social-post-list">
-        {(posts.data?.posts || []).map((post) => (
-          <PostCard
-            key={post.id}
-            post={post}
-            onUpdated={updated}
-            onDeleted={(id) =>
-              posts.setData((current) => ({
-                ...current,
-                posts: (current?.posts || []).filter((value) => value.id !== id),
-              }))
-            }
-          />
-        ))}
-      </div>
+      {publications.length > 0 && (
+        view === 'grid' ? (
+          <div className="closet-profile-grid">
+            {publications.map((post) => (
+              <ProfilePostPreview key={post.id + ':' + post.updatedAt} post={post} />
+            ))}
+          </div>
+        ) : (
+          <div className="social-post-list">
+            {publications.map((post) => (
+              <PostCard key={post.id} post={post} onUpdated={updated} onDeleted={deleted} />
+            ))}
+          </div>
+        )
+      )}
       {posts.data?.nextCursor && (
         <div className="social-load-more">
-          <AppButton
-            className="btn btn-secondary"
-            onClick={posts.loadMore}
-            disabled={posts.moreLoading}
-          >
+          <AppButton className="btn btn-secondary" onClick={posts.loadMore} disabled={posts.moreLoading}>
             {posts.moreLoading ? 'Загружаем…' : 'Ещё образы'}
           </AppButton>
         </div>
       )}
     </section>
+  );
+}
+
+function ProfileView({ profile, onChanged }) {
+  const social = useSocial();
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const self = profile.relationship === 'self' || social.user?.id === profile.id;
+
+  function saved(next) {
+    setEditing(false);
+    if (next.username !== profile.username) {
+      router.replace(profilePath(next.username));
+    } else {
+      onChanged();
+    }
+  }
+
+  return (
+    <>
+      <ProfileHeader
+        profile={profile}
+        pageHeading
+        onChanged={onChanged}
+        onEdit={self ? () => setEditing(true) : undefined}
+      />
+      {profile.canViewPosts === false ? (
+        <div className="social-private-note social-surface">
+          <Icon name="lock" size={30} />
+          {profile.blockedByMe ? (
+            <>
+              <h2>Профиль заблокирован</h2>
+              <p>Чтобы снова видеть доступные публикации, разблокируйте пользователя.</p>
+            </>
+          ) : (
+            <>
+              <h2>Образы доступны друзьям</h2>
+              <p>После принятия заявки вы увидите образы, которыми автор делится с друзьями.</p>
+            </>
+          )}
+        </div>
+      ) : (
+        <ProfilePosts
+          key={profile.username + ':' + profile.relationship}
+          username={profile.username}
+          self={self}
+        />
+      )}
+      {self && editing && (
+        <Modal title="Редактировать профиль" onClose={() => setEditing(false)}>
+          <ProfileEditor
+            inDialog
+            profile={profile}
+            onCancel={() => setEditing(false)}
+            onSaved={saved}
+          />
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -158,54 +280,29 @@ export default function ProfilePage({ username }) {
     enabled: social.ready && social.configured !== false,
   });
   const profile = result.data?.profile;
+
   return (
-    <>
-      <PageHeader
-        eyebrow="ЛЮДИ И ИХ СТИЛЬ"
-        title="Профиль участника"
-        description="История стиля в деталях и любимых сочетаниях."
-      >
-        <Link href="/community?tab=people" className="btn btn-secondary">
-          <Icon name="chevron-left" />К участникам
-        </Link>
-      </PageHeader>
-      <SocialNotice error onRetry={social.refresh}>
-        {social.error}
-      </SocialNotice>
+    <div className="closet-profile-page">
+      <Link href="/community?tab=people" className="btn btn-ghost closet-profile-back">
+        <Icon name="chevron-left" /> К участникам
+      </Link>
+      {!profile && <h1>Профиль</h1>}
+      <SocialNotice error onRetry={social.refresh}>{social.error}</SocialNotice>
       {social.configured === false ? (
         <SocialAccessNote />
       ) : (
         <>
-          <SocialNotice error onRetry={result.reload}>
-            {result.error}
-          </SocialNotice>
-          {result.loading && (
-            <p className="social-loading" role="status">
-              Открываем профиль…
-            </p>
-          )}
+          <SocialNotice error onRetry={result.reload}>{result.error}</SocialNotice>
+          {result.loading && <p className="social-loading" role="status">Открываем профиль…</p>}
           {profile && (
-            <div key={`${profile.id}:${social.user?.id || 'guest'}`}>
-              <ProfileHeader profile={profile} onChanged={result.reload} />
-              {profile.canViewPosts === false ? (
-                <div className="social-private-note social-surface">
-                  <Icon name="user" size={34} />
-                  <h2>Образы доступны друзьям</h2>
-                  <p>
-                    Отправьте заявку. После её принятия вы увидите публикации, которыми автор
-                    делится с друзьями.
-                  </p>
-                </div>
-              ) : (
-                <ProfilePosts
-                  key={`${profile.username}:${profile.relationship}`}
-                  username={profile.username}
-                />
-              )}
-            </div>
+            <ProfileView
+              key={profile.id + ':' + (social.user?.id || 'guest')}
+              profile={profile}
+              onChanged={result.reload}
+            />
           )}
         </>
       )}
-    </>
+    </div>
   );
 }

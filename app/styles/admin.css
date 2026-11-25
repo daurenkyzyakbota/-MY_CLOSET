@@ -1,0 +1,86 @@
+/* Admin panel: reports queue and user roles. Uses theme tokens so light and dark both work. */
+.admin-page .admin-stats {
+  margin-bottom: 18px;
+}
+.admin-page .admin-tabs {
+  margin-bottom: 16px;
+}
+.admin-page .admin-search {
+  margin-bottom: 12px;
+}
+.admin-list {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-card {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+}
+.admin-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.admin-card p {
+  margin: 0;
+}
+.admin-target {
+  display: grid;
+  gap: 4px;
+}
+.admin-target p {
+  color: var(--ink);
+  white-space: pre-line;
+}
+.admin-reason {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rose-soft);
+  color: var(--ink);
+}
+.admin-muted {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+.admin-tag-warn {
+  border-color: var(--rose);
+  background: var(--rose-soft);
+  color: var(--rose-deep);
+}
+.admin-tag-role {
+  border-color: var(--rose-deep);
+  color: var(--rose-deep);
+}
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-user {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+.admin-user-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .admin-user {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-actions :is(.btn, .button) {
+    flex: 1 1 auto;
+  }
+}

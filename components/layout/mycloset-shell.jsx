@@ -33,6 +33,14 @@ const secondary = [
   { href: '/trash', key: 'trash', label: 'Корзина', icon: 'trash' },
   { href: '/settings', key: 'settings', label: 'Настройки', icon: 'settings' },
 ];
+// Shown only to administrators; the server checks the role on every admin action.
+const adminItem = {
+  href: '/admin',
+  key: 'admin',
+  label: 'Админ-панель',
+  icon: 'lock',
+  description: 'Жалобы, пользователи и роли',
+};
 const mobile = [
   { href: '/', key: 'home', label: 'Главная', icon: 'home' },
   { href: '/wardrobe', key: 'wardrobe', label: 'Гардероб', icon: 'wardrobe' },
@@ -150,7 +158,10 @@ export default function MyClosetShell({ children }) {
         pathname.startsWith(`${href}/`) ||
         (href === '/settings' && pathname === '/profile') ||
         (href === '/community' && pathname.startsWith('/people/'));
-  const current = [...navigation, ...secondary].find((item) => active(item.href));
+  const isAdmin = !!social.profile?.isAdmin;
+  const secondaryItems = isAdmin ? [adminItem, ...secondary] : secondary;
+  const moreMenuItems = isAdmin ? [...moreItems, adminItem] : moreItems;
+  const current = [...navigation, ...secondaryItems].find((item) => active(item.href));
   useEffect(() => {
     setMore(false);
   }, [pathname]);
@@ -196,7 +207,7 @@ export default function MyClosetShell({ children }) {
             <p>Любимые вещи. Новые сочетания. Немного вдохновения каждый день.</p>
           </div>
           <div className="sidebar-bottom">
-            {secondary.map(navLink)}
+            {secondaryItems.map(navLink)}
             <SaveIndicator />
           </div>
         </aside>
@@ -293,7 +304,7 @@ export default function MyClosetShell({ children }) {
         <AppButton
           type="button"
           data-action="open-more"
-          className={moreItems.some((item) => active(item.href)) ? 'is-active' : ''}
+          className={moreMenuItems.some((item) => active(item.href)) ? 'is-active' : ''}
           onClick={() => setMore(true)}
           aria-label="Открыть все разделы"
         >
@@ -319,7 +330,7 @@ export default function MyClosetShell({ children }) {
               </span>
               <Icon name="arrow-right" />
             </AppButton>
-            {moreItems.map((item) => (
+            {moreMenuItems.map((item) => (
               <Link
                 className="more-menu-link"
                 key={item.key}

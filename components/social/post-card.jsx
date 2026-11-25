@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { useSocial } from '@/components/providers/social-provider.jsx';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { ConfirmDialog, Field, Icon, ItemArt, Modal } from '@/components/ui/ui.jsx';
@@ -340,11 +342,16 @@ export default function PostCard({
   onUpdated,
   onDeleted,
   expanded = false,
+  community = false,
   onTagSelect,
 }) {
   const social = useSocial();
   const [post, setPost] = useState(initialPost);
   const [comments, setComments] = useState(expanded);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const menuId = useId();
+  const menuButtonId = useId();
+  const commentsId = useId();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [report, setReport] = useState(false);
@@ -376,9 +383,16 @@ export default function PostCard({
     await social.request('posts.delete', { postId: post.id });
     onDeleted?.(post.id);
   }
+  function chooseAction(showDialog) {
+    setMenuAnchor(null);
+    showDialog(true);
+  }
   const items = post.snapshot?.items || [];
   return (
-    <article className="social-post-card social-surface" data-post-id={post.id}>
+    <article
+      className={`social-post-card social-surface${community ? ' community-post-card' : ''}`}
+      data-post-id={post.id}
+    >
       <header className="social-post-header">
         <Link
           className="social-person-identity"
@@ -390,9 +404,51 @@ export default function PostCard({
             <span className="social-handle">@{post.author.username}</span>
           </span>
         </Link>
-        <span className="social-post-visibility">
-          {visibilityLabels[post.visibility] || 'Образ'}
-        </span>
+        {community && (owned || active) ? (
+          <div className="community-post-meta">
+            <span className="social-post-visibility">{visibilityLabels[post.visibility] || 'Образ'}</span>
+            <AppButton
+              id={menuButtonId}
+              className="btn btn-ghost community-post-more"
+              aria-label={`Действия с публикацией: ${post.title}`}
+              aria-haspopup="menu"
+              aria-controls={menuAnchor ? menuId : undefined}
+              aria-expanded={Boolean(menuAnchor)}
+              onClick={(event) => setMenuAnchor(event.currentTarget)}
+            >
+              <Icon name="more" />
+            </AppButton>
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={() => setMenuAnchor(null)}
+              slotProps={{
+                list: {
+                  id: menuId,
+                  className: 'community-post-more-list',
+                  'aria-labelledby': menuButtonId,
+                },
+              }}
+            >
+              {owned
+                ? [
+                    <MenuItem key="edit" disabled={busy} onClick={() => chooseAction(setEditing)}>
+                      <Icon name="edit" size={18} /> Изменить
+                    </MenuItem>,
+                    <MenuItem key="delete" disabled={busy} onClick={() => chooseAction(setDeleting)}>
+                      <Icon name="trash" size={18} /> Удалить
+                    </MenuItem>,
+                  ]
+                : (
+                    <MenuItem onClick={() => chooseAction(setReport)}>
+                      <Icon name="warning" size={18} /> Пожаловаться
+                    </MenuItem>
+                  )}
+            </Menu>
+          </div>
+        ) : (
+          <span className="social-post-visibility">{visibilityLabels[post.visibility] || 'Образ'}</span>
+        )}
       </header>
       <div className="social-post-title">
         <h2>
@@ -400,7 +456,6 @@ export default function PostCard({
         </h2>
         <time dateTime={post.createdAt}>{socialDate(post.createdAt)}</time>
       </div>
-      {post.description && <p className="social-post-description">{post.description}</p>}
       {items.length > 0 && (
         <div className="social-published-items" aria-label="Состав опубликованного образа">
           {items.map((item) => (
@@ -408,6 +463,7 @@ export default function PostCard({
           ))}
         </div>
       )}
+      {post.description && <p className="social-post-description">{post.description}</p>}
       {!!post.tags?.length && (
         <div className="social-post-tags">
           {post.tags.map((tag) =>
@@ -434,16 +490,12 @@ export default function PostCard({
         </div>
       )}
       <div className="social-post-actions">
-        <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
-          <Icon name="outfits" />
-          Собрать из моих вещей
-        </AppButton>
         {active ? (
           <AppButton
             className={`btn btn-ghost${post.liked ? ' is-selected' : ''}`}
             disabled={busy}
             aria-pressed={!!post.liked}
-            aria-label={`${post.liked ? 'Убрать лайк' : 'Поставить лайк'}: ${post.title}`}
+            aria-label={`${post.liked ? 'Убрать лайк' : 'Поставить лайк'}: ${post.title}. Лайков: ${post.likesCount || 0}`}
             onClick={() => toggle('posts.like', { liked: !post.liked })}
           >
             <Icon name="heart" />
@@ -453,7 +505,7 @@ export default function PostCard({
           <Link
             className="btn btn-ghost"
             href={social.user ? '/community?tab=profile' : '/account'}
-            aria-label="Войти, чтобы поставить лайк"
+            aria-label={`Войти, чтобы поставить лайк. Лайков: ${post.likesCount || 0}`}
           >
             <Icon name="heart" />
             {post.likesCount || 0}
@@ -461,10 +513,13 @@ export default function PostCard({
         )}
         <AppButton
           className="btn btn-ghost"
+          aria-label={`Комментарии: ${post.commentsCount || 0}`}
           aria-expanded={comments}
+          aria-controls={commentsId}
           onClick={() => setComments((value) => !value)}
         >
-          Комментарии · {post.commentsCount || 0}
+          <Icon name="message" size={18} />
+          {community ? post.commentsCount || 0 : `Комментарии · ${post.commentsCount || 0}`}
         </AppButton>
         {active && (
           <AppButton
@@ -477,13 +532,14 @@ export default function PostCard({
           </AppButton>
         )}
         <AppButton
-          className="btn btn-ghost"
+          className="btn btn-ghost community-post-share"
           onClick={() => setSharing(true)}
           aria-label={`Поделиться образом: ${post.title}`}
         >
-          Поделиться
+          <Icon name="share" size={18} />
+          <span>Поделиться</span>
         </AppButton>
-        {owned ? (
+        {!community && (owned ? (
           <>
             <AppButton className="btn btn-ghost" disabled={busy} onClick={() => setEditing(true)}>
               <Icon name="edit" />
@@ -505,18 +561,24 @@ export default function PostCard({
               Пожаловаться
             </AppButton>
           )
-        )}
+        ))}
+        <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
+          <Icon name="outfits" />
+          Собрать из моих вещей
+        </AppButton>
       </div>
       <SocialNotice error>{error}</SocialNotice>
-      {comments && (
-        <Comments
-          key={`${post.id}:${social.user?.id || 'guest'}`}
-          post={post}
-          onCountChange={(delta) =>
-            updated({ ...post, commentsCount: Math.max(0, (post.commentsCount || 0) + delta) })
-          }
-        />
-      )}
+      <div id={commentsId} hidden={!comments}>
+        {comments && (
+          <Comments
+            key={`${post.id}:${social.user?.id || 'guest'}`}
+            post={post}
+            onCountChange={(delta) =>
+              updated({ ...post, commentsCount: Math.max(0, (post.commentsCount || 0) + delta) })
+            }
+          />
+        )}
+      </div>
       {editing && <PostEditor post={post} onClose={() => setEditing(false)} onSaved={updated} />}
       {deleting && (
         <ConfirmDialog

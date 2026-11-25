@@ -209,3 +209,32 @@ test('role and block state are visible only on the own profile, and blocked auth
   const feed = db.calls.find(({ sql }) => sql.includes('FROM public.mycloset_posts s JOIN public.mycloset_profiles p'));
   assert.match(feed.sql, /p\.banned_at IS NULL/);
 });
+
+test('the automatic roles migration matches db/007-roles.sql and runs only when columns are missing', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { ROLES_MIGRATION, ensureRolesSchema, rolesSchemaGuard } = await import('../lib/social/roles-schema.js');
+  const file = await readFile(new URL('../db/007-roles.sql', import.meta.url), 'utf8');
+  assert.equal(file.replace('BEGIN;\n', '').replace(/COMMIT;\s*$/, '').trim(), ROLES_MIGRATION);
+
+  const fake = (present) => {
+    const calls = [];
+    const query = async (sql) => {
+      calls.push(sql);
+      return { rows: sql.includes('information_schema') ? [{ present }] : [] };
+    };
+    return { calls, pool: { query, connect: async () => ({ query, release() {} }) } };
+  };
+  const ready = fake(2);
+  assert.equal(await ensureRolesSchema(ready.pool), false);
+  assert.equal(ready.calls.length, 1);
+  const old = fake(0);
+  assert.equal(await ensureRolesSchema(old.pool), true);
+  assert.deepEqual(old.calls.slice(1, 3), ['BEGIN', "SELECT pg_advisory_xact_lock(hashtextextended('mycloset:migration:007',0))"]);
+  assert.equal(old.calls[3], ROLES_MIGRATION);
+  assert.equal(old.calls.at(-1), 'COMMIT');
+
+  const once = fake(2);
+  const guard = rolesSchemaGuard(() => once.pool);
+  await Promise.all([guard(), guard(), guard()]);
+  assert.equal(once.calls.length, 1);
+});

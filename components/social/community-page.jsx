@@ -739,6 +739,12 @@ function CommunityContent() {
         canPublish={!postId && social.ready && !cloudUnavailable}
       />
       <SocialNotice error onRetry={social.refresh}>{social.error}</SocialNotice>
+      {social.profile?.banned && (
+        <SocialNotice error>
+          Ваш аккаунт заблокирован администратором. Смотреть ленту и читать сообщения можно,
+          а публиковать, комментировать, ставить лайки и писать — нельзя.
+        </SocialNotice>
+      )}
       {!social.ready ? (
         <p className="social-loading" role="status">Открываем сообщество…</p>
       ) : (

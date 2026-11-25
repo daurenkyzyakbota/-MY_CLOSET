@@ -123,6 +123,22 @@ function ProfilePostPreview({ post }) {
             {post.visibility === 'private' ? 'Только мне' : 'Друзьям'}
           </span>
         )}
+        {(post.snapshot?.items?.length || 0) > 1 && (
+          <span className="closet-profile-tile-count" aria-hidden="true">
+            <Icon name="copy" size={14} />
+            {post.snapshot.items.length}
+          </span>
+        )}
+        <span className="closet-profile-tile-overlay">
+          <span>
+            <Icon name="heart" size={18} fill="currentColor" />
+            {post.likesCount || 0}
+          </span>
+          <span>
+            <Icon name="message" size={18} fill="currentColor" />
+            {post.commentsCount || 0}
+          </span>
+        </span>
       </div>
       <div className="closet-profile-tile-caption">
         <strong>{post.title}</strong>

@@ -238,3 +238,61 @@ test('the automatic roles migration matches db/007-roles.sql and runs only when 
   await Promise.all([guard(), guard(), guard()]);
   assert.equal(once.calls.length, 1);
 });
+
+const postRow = (author) => ({
+  id: 'e5555555-5555-4555-8555-555555555555',
+  user_id: author.id,
+  title: 'Образ',
+  description: '',
+  tags: [],
+  visibility: 'public',
+  created_at: new Date('2026-11-20T00:00:00Z'),
+  updated_at: new Date('2026-11-20T00:00:00Z'),
+  cursor_at: '2026-11-20T00:00:00.000000Z',
+  snapshot: { items: [] },
+  likes_count: '0',
+  comments_count: '0',
+  liked: false,
+  saved: false,
+});
+const withPost = (author) => (sql) =>
+  sql.includes('JOIN public.mycloset_profiles p ON p.user_id=s.user_id WHERE s.id=$2')
+    ? { rows: [postRow(author)] }
+    : null;
+
+test('admins can remove any visible post from the feed and its open reports are closed', async () => {
+  const db = fakeDatabase(roles(), withPost(member));
+  const service = createSocialService({ pool: db.pool });
+  const { post } = await service.execute('posts.get', { postId: postRow(member).id }, admin);
+  assert.equal(post.owned, false);
+  assert.equal(post.canModerate, true);
+  assert.deepEqual(await service.execute('posts.delete', { postId: post.id }, admin), { ok: true });
+  const remove = db.calls.find(({ sql }) => sql.startsWith('DELETE FROM public.mycloset_posts'));
+  assert.deepEqual(remove.values, [post.id, member.id]);
+  const close = db.calls.find(({ sql }) => sql.startsWith('UPDATE public.mycloset_reports'));
+  assert.deepEqual(close.values, [post.id, admin.id]);
+  assert.match(close.sql, /decision='remove'/);
+});
+
+test('ordinary users can neither moderate nor delete somebody else\'s post', async () => {
+  const db = fakeDatabase(roles(), withPost(admin));
+  const service = createSocialService({ pool: db.pool });
+  const { post } = await service.execute('posts.get', { postId: postRow(admin).id }, member);
+  assert.equal(post.canModerate, false);
+  await assert.rejects(
+    service.execute('posts.delete', { postId: post.id }, member),
+    (error) => error.status === 403,
+  );
+  assert.equal(db.writes().length, 0);
+});
+
+test('an author deleting their own post does not touch reports', async () => {
+  const db = fakeDatabase(roles(), withPost(member));
+  await createSocialService({ pool: db.pool }).execute(
+    'posts.delete',
+    { postId: postRow(member).id },
+    member,
+  );
+  assert.equal(db.writes().filter(({ sql }) => sql.startsWith('DELETE FROM public.mycloset_posts')).length, 1);
+  assert.equal(db.writes().filter(({ sql }) => sql.startsWith('UPDATE public.mycloset_reports')).length, 0);
+});

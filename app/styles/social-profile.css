@@ -412,3 +412,51 @@
     padding: 9px;
   }
 }
+
+/* Photo-grid hints: item count badge and likes/comments on hover or focus */
+.closet-profile-tile-count {
+  position: absolute;
+  inset: 6px 6px auto auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgb(20 14 22 / 0.62);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.closet-profile-tile-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgb(20 14 22 / 0.45);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+
+.closet-profile-tile-overlay > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.closet-profile-tile:hover .closet-profile-tile-overlay,
+.closet-profile-tile:focus-visible .closet-profile-tile-overlay {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .closet-profile-tile-overlay {
+    display: none;
+  }
+}

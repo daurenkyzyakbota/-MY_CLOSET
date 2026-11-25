@@ -68,6 +68,13 @@ const icons = {
   heart: (
     <path d="m20.8 4.6 0 0a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z" />
   ),
+  bookmark: <path d="M6 3h12v18l-6-4.5L6 21Z" />,
+  shield: (
+    <>
+      <path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6Z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
   calendar: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="2" />

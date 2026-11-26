@@ -228,6 +228,12 @@ export default function AccountPage() {
             Гардероб и все изменения продолжают сохраняться на этом устройстве.
           </p>
           {cloud.configError && <p className="footnote">{cloud.configError}</p>}
+          {!cloud.configError && (
+            <p className="footnote">
+              Чтобы включить вход на этом компьютере, откройте папку сайта, запустите «Настроить
+              аккаунт.cmd», вставьте ссылку на базу из Neon и перезапустите сайт.
+            </p>
+          )}
           <AppButton className="btn btn-primary" onClick={cloud.refreshConfiguration} disabled={!cloud.online}>
             <Icon name="refresh" />
             Проверить подключение

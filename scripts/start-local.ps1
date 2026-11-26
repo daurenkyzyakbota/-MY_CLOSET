@@ -155,8 +155,32 @@ function Open-MyCloset([int]$SitePort) {
   }
 }
 
+function Test-InstalledDependencies([string]$NodePath, [string]$LockPath) {
+  # Compare the actual packages to the lockfile. npm ls would reject peer
+  # mismatches that npm ci accepts for this project's pinned dependencies.
+  $check = @'
+const { readFileSync } = require('node:fs');
+const { dirname, join } = require('node:path');
+const lockPath = process.argv[1];
+const root = dirname(lockPath);
 try {
-  if (-not (Test-Path -LiteralPath (Join-Path $projectRoot 'package.json'))) {
+  const { packages } = JSON.parse(readFileSync(lockPath, 'utf8'));
+  for (const [name, locked] of Object.entries(packages)) {
+    if (!name.startsWith('node_modules/') || locked.optional || locked.dev || locked.link) continue;
+    const installed = JSON.parse(readFileSync(join(root, name, 'package.json'), 'utf8'));
+    if (installed.version !== locked.version) process.exit(1);
+  }
+} catch {
+  process.exit(1);
+}
+'@
+  & $NodePath --input-type=commonjs -e $check -- $LockPath
+  return ($LASTEXITCODE -eq 0)
+}
+
+try {
+  $manifestFile = Join-Path $projectRoot 'package.json'
+  if (-not (Test-Path -LiteralPath $manifestFile -PathType Leaf)) {
     throw 'Keep this launcher inside the complete MyCloset project folder.'
   }
   New-Item -ItemType Directory -Path $localDirectory -Force | Out-Null
@@ -176,6 +200,18 @@ try {
   if (-not $ownsLock) {
     throw 'Another launcher is already preparing this folder. Wait for it, then try again.'
   }
+
+  $lockFile = Join-Path $projectRoot 'package-lock.json'
+  if (-not (Test-Path -LiteralPath $lockFile -PathType Leaf)) {
+    throw 'package-lock.json is missing. Restore the complete MyCloset project folder.'
+  }
+  $dependencyHash = (Get-FileHash -LiteralPath $lockFile -Algorithm SHA256).Hash + ':' +
+    (Get-FileHash -LiteralPath $manifestFile -Algorithm SHA256).Hash
+  $savedDependencyHash = ''
+  if (Test-Path -LiteralPath $dependencyFile -PathType Leaf) {
+    $savedDependencyHash = ([string](Get-Content -LiteralPath $dependencyFile -Raw)).Trim()
+  }
+  $dependenciesChanged = $savedDependencyHash -and $savedDependencyHash -ne $dependencyHash
 
   $preferredPort = $Port
   if (-not $PSBoundParameters.ContainsKey('Port') -and (Test-Path -LiteralPath $stateFile)) {
@@ -199,6 +235,9 @@ try {
     }
     $existing = Get-LocalServerProcess $candidate
     if ($existing) {
+      if ($dependenciesChanged) {
+        throw 'The project dependencies changed. Stop the running MyCloset server or restart this computer, then launch MyCloset again.'
+      }
       Write-Host "Checking the running MyCloset server on port $candidate..."
       $existingDeadline = (Get-Date).AddSeconds(30)
       do {
@@ -220,43 +259,51 @@ try {
     Write-Host "Using port $selectedPort. Different site addresses have separate local browser data."
   }
 
-  $nodeCommand = Get-Command node.exe -ErrorAction SilentlyContinue
-  $npmCommand = Get-Command npm.cmd -ErrorAction SilentlyContinue
-  if (-not $nodeCommand -or -not $npmCommand) {
-    throw 'Install Node.js 24 from https://nodejs.org/, then open this launcher again.'
+  $nodeCandidates = @((Join-Path $localDirectory 'node\node.exe'))
+  $nodeCandidates += @(Get-Command node.exe -All -CommandType Application -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty Source)
+  $nodePath = $null
+  foreach ($candidatePath in ($nodeCandidates | Select-Object -Unique)) {
+    if (-not (Test-Path -LiteralPath $candidatePath -PathType Leaf)) { continue }
+    $nodeVersion = & $candidatePath --version
+    if ($LASTEXITCODE -eq 0 -and $nodeVersion -match '^v24\.') {
+      $nodePath = $candidatePath
+      break
+    }
   }
-  $nodeVersion = & $nodeCommand.Source --version
-  if ($LASTEXITCODE -ne 0 -or $nodeVersion -notmatch '^v24\.') {
-    throw 'This project requires Node.js 24. Install that version, then open this launcher again.'
+  if (-not $nodePath) {
+    throw 'This project requires Node.js 24. Install it from https://nodejs.org/ and make it available on PATH.'
   }
   $nextBinary = Join-Path $projectRoot 'node_modules\next\dist\bin\next'
-  $lockFile = Join-Path $projectRoot 'package-lock.json'
-  if (-not (Test-Path -LiteralPath $lockFile)) {
-    throw 'package-lock.json is missing. Restore the complete MyCloset project folder.'
-  }
-  $dependencyHash = (Get-FileHash -LiteralPath $lockFile -Algorithm SHA256).Hash + ':' +
-    (Get-FileHash -LiteralPath (Join-Path $projectRoot 'package.json') -Algorithm SHA256).Hash
-  $savedDependencyHash = ''
-  if (Test-Path -LiteralPath $dependencyFile) {
-    $savedDependencyHash = (Get-Content -LiteralPath $dependencyFile -Raw).Trim()
-  }
-  $needsInstall = -not (Test-Path -LiteralPath $nextBinary) -or
-    -not (Test-Path -LiteralPath (Join-Path $projectRoot 'node_modules\react\package.json')) -or
-    -not (Test-Path -LiteralPath (Join-Path $projectRoot 'node_modules\@neondatabase\auth\package.json')) -or
-    ($savedDependencyHash -and $savedDependencyHash -ne $dependencyHash)
+  $needsInstall = $dependenciesChanged -or
+    -not (Test-Path -LiteralPath $nextBinary -PathType Leaf) -or
+    -not (Test-InstalledDependencies $nodePath $lockFile)
   if ($needsInstall) {
+    $nodeDirectory = Split-Path -Parent $nodePath
+    $npmDirectories = @($nodeDirectory)
+    foreach ($candidate in (Get-Command npm.cmd -All -CommandType Application -ErrorAction SilentlyContinue)) {
+      $npmDirectories += Split-Path -Parent $candidate.Source
+    }
+    $npmCli = $npmDirectories | ForEach-Object { Join-Path $_ 'node_modules\npm\bin\npm-cli.js' } |
+      Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    if (-not $npmCli) {
+      throw 'npm was not found. Install Node.js 24 with npm and try again.'
+    }
     $installLog = Join-Path $localDirectory 'install.log'
     Write-Host 'Installing the project dependencies. The first launch needs an internet connection...'
     Push-Location -LiteralPath $projectRoot
     try {
       $previousErrorPreference = $ErrorActionPreference
+      $previousPath = $env:Path
       try {
         # Windows PowerShell 5 must not treat npm's ordinary stderr warnings
         # as a terminating error. The command's exit code decides success.
         $ErrorActionPreference = 'Continue'
-        & $npmCommand.Source ci *> $installLog
+        $env:Path = $nodeDirectory + [IO.Path]::PathSeparator + $previousPath
+        & $nodePath $npmCli ci *> $installLog
         $installExitCode = $LASTEXITCODE
       } finally {
+        $env:Path = $previousPath
         $ErrorActionPreference = $previousErrorPreference
       }
       if ($installExitCode -ne 0) {
@@ -271,9 +318,15 @@ try {
   $serverLog = Join-Path $localDirectory "server-$selectedPort-$stamp.log"
   $serverErrorLog = Join-Path $localDirectory "server-$selectedPort-$stamp.error.log"
   Write-Host "Starting MyCloset on http://localhost:$selectedPort ..."
-  $server = Start-Process -FilePath $nodeCommand.Source -ArgumentList @(
-    "`"$nextBinary`"", 'dev', '--hostname', '0.0.0.0', '--port', "$selectedPort"
-  ) -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $serverLog -RedirectStandardError $serverErrorLog -PassThru
+  $previousLoopback = $env:MYCLOSET_LOCAL_LOOPBACK
+  try {
+    $env:MYCLOSET_LOCAL_LOOPBACK = '1'
+    $server = Start-Process -FilePath $nodePath -ArgumentList @(
+      "`"$nextBinary`"", 'dev', '--hostname', '127.0.0.1', '--port', "$selectedPort"
+    ) -WorkingDirectory $projectRoot -WindowStyle Hidden -RedirectStandardOutput $serverLog -RedirectStandardError $serverErrorLog -PassThru
+  } finally {
+    $env:MYCLOSET_LOCAL_LOOPBACK = $previousLoopback
+  }
   $deadline = (Get-Date).AddSeconds(120)
   do {
     if (Test-MyClosetServer $selectedPort) {

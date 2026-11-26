@@ -7,7 +7,6 @@ import { SocialGate } from '@/components/social/social-gate.jsx';
 import { useSocialPoll } from '@/components/social/use-social-poll.js';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { EmptyState, Icon, PageHeader } from '@/components/ui/ui.jsx';
-import NotificationPreferences from '@/components/social/notification-preferences.jsx';
 
 const labels = {
   friend_request: { icon: 'user', label: 'Заявка в друзья' },
@@ -194,9 +193,6 @@ function NotificationsContent() {
           </AppButton>
         </div>
       </div>
-      <p className="social-notifications-preferences">
-        <Link href="/community?tab=profile">Настроить уведомления в профиле</Link>
-      </p>
       {error && (
         <div className="notice notice-error social-messaging-notice" role="alert">
           <span>{error}</span>
@@ -313,9 +309,8 @@ export default function NotificationsPage() {
       <PageHeader
         eyebrow="ВАШЕ СООБЩЕСТВО"
         title="Уведомления"
-        description="Заявки, разговоры и маленькие знаки внимания к вашим образам."
+        description="Заявки в друзья, сообщения и реакции на ваши образы."
       />
-      <NotificationPreferences />
       <SocialGate>
         <NotificationsContent key={user?.id || 'guest'} />
       </SocialGate>

@@ -12,6 +12,7 @@ export default function DailyFocus({ onAddItem, onCreateOutfit }) {
   const { state, markWorn } = useCloset();
   const today = localDate();
   const summary = useMemo(() => everydaySummary(state, today), [state, today]);
+  const todaysWear = state.wearLog.some((record) => record.date === today);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   async function wear(id, outfit) {
@@ -112,6 +113,13 @@ export default function DailyFocus({ onAddItem, onCreateOutfit }) {
                 В стирке: <strong>{summary.laundryCount}</strong>
               </Link>
             </div>
+            <Link
+              className="btn btn-ghost everyday-photo-link"
+              href={`/insights?date=${today}${todaysWear ? '' : '&add=1'}`}
+            >
+              <Icon name="image" />
+              Фото дня
+            </Link>
           </div>
           <div className="everyday-card">
             <div className="section-header">
@@ -160,23 +168,6 @@ export default function DailyFocus({ onAddItem, onCreateOutfit }) {
               Вся история носки <Icon name="arrow-right" />
             </Link>
           </div>
-        </div>
-      )}
-      {summary.trip && (
-        <div className="everyday-trip">
-          <Icon name="briefcase" size={26} />
-          <div>
-            <strong>{summary.trip.name}</strong>
-            <p>
-              {summary.trip.total
-                ? `Собрано вещей: ${summary.trip.packed} из ${summary.trip.total}`
-                : 'Добавьте вещи в список сборов'}
-              {summary.trip.missing ? ` · удалены и требуют замены: ${summary.trip.missing}` : ''}
-            </p>
-          </div>
-          <Link className="btn btn-secondary" href="/collections?tab=trips">
-            Открыть поездки
-          </Link>
         </div>
       )}
       {error && (

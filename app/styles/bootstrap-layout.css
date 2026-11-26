@@ -45,6 +45,43 @@
   margin-bottom: 0;
 }
 
+.settings-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.settings-shortcuts .btn {
+  min-height: 44px;
+}
+
+.settings-section-stack {
+  display: grid;
+  gap: var(--bs-gutter-x);
+}
+
+.settings-section-stack > .settings-card {
+  margin-bottom: 0;
+  scroll-margin-top: 108px;
+}
+
+.settings-disclosure {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.settings-disclosure summary {
+  padding: 12px 0;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.settings-disclosure > .field + .field {
+  margin-top: 12px;
+}
+
 /* Moving cards inside Bootstrap columns preserves their original ordinal accents. */
 .bootstrap-stats-row > :nth-child(2) .stat-icon {
   background: var(--rose-soft);

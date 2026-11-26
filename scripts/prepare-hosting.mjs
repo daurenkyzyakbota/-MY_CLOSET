@@ -53,8 +53,22 @@ if (!viteConfig.includes('myclosetAwsNode')) {
   if (!viteConfig.includes('plugins: [')) throw new Error('Hosting Vite plugin structure changed.');
   viteConfig = `import { myclosetAwsNode } from './scripts/vite/mycloset-aws-node.mjs';\n${viteConfig}`
     .replace('plugins: [', 'plugins: [\n      myclosetAwsNode(),');
-  file('vite.config.ts', viteConfig);
 }
+if (!viteConfig.includes('garment-photo-worker-')) {
+  const serverConfigStart = '\n    server: {';
+  if (!viteConfig.includes(serverConfigStart)) throw new Error('Hosting Vite configuration structure changed.');
+  viteConfig = viteConfig.replace(serverConfigStart, `
+    experimental: {
+      renderBuiltUrl(filename, { hostType, ssr }) {
+        // Vinext can substitute a file URL for import.meta.url in client chunks.
+        if (ssr || hostType !== 'js' || !/(?:^|\\/)garment-photo-worker-[^/]+\\.js$/.test(filename))
+          return;
+        return { runtime: 'self.location.origin + ' + JSON.stringify('/' + filename.replace(/^\\//, '')) };
+      },
+    },
+    server: {`);
+}
+file('vite.config.ts', viteConfig);
 
 if (process.argv.includes('--dependencies')) {
   const app = JSON.parse(readFileSync(path.join(source, 'package.json'), 'utf8'));

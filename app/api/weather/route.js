@@ -13,7 +13,7 @@ export async function GET(request) {
         error:
           error instanceof WeatherError
             ? error.message
-            : 'Не удалось получить прогноз. Укажите погоду вручную.',
+            : 'Не удалось получить прогноз.',
       },
       {
         status: error instanceof WeatherError ? error.status : 500,

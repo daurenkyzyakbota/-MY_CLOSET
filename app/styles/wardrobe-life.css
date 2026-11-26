@@ -14,6 +14,109 @@
   display: grid;
   gap: 15px;
 }
+.wear-record {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 0;
+}
+.wear-record-content {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+.wear-photo-open.app-button {
+  flex-shrink: 0;
+  display: block;
+  width: clamp(88px, 15vw, 150px);
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  aspect-ratio: 4 / 5;
+  background: var(--appearance-inset);
+}
+.wear-photo-open img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.wear-photo-open:focus-visible {
+  outline: 3px solid var(--rose-dark);
+  outline-offset: 3px;
+}
+.wear-photo-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 218px), 1fr));
+}
+.wear-photo-gallery > .wear-record {
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px;
+  gap: 14px;
+}
+.wear-photo-open.wear-gallery-cover {
+  width: 100%;
+}
+.wear-history-more {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.wear-photo-edit {
+  margin-top: 12px;
+}
+.wear-photo-field {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.wear-photo-field :is(h3, p) {
+  margin: 0;
+}
+.wear-photo-actions .wear-photo-camera {
+  display: none;
+}
+@media (any-pointer: coarse) {
+  .wear-photo-actions .wear-photo-camera {
+    display: inline-flex;
+  }
+}
+.wear-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wear-photo-preview,
+.wear-photo-full {
+  display: block;
+  max-width: 100%;
+  max-height: 65vh;
+  border-radius: 12px;
+  object-fit: contain;
+}
+.wear-photo-preview {
+  max-height: 200px;
+}
+.wear-photo-full {
+  margin-inline: auto;
+}
+.calendar-photo-dot {
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--rose-dark);
+  border-radius: 2px;
+}
+.calendar-wear-history h3 {
+  margin-bottom: 8px;
+}
+.everyday-photo-link {
+  margin-top: 10px;
+}
 .wear-record-heading {
   display: flex;
   justify-content: space-between;
@@ -22,6 +125,7 @@
 }
 .wear-record-heading h3 {
   margin-bottom: 0;
+  overflow-wrap: anywhere;
 }
 .wear-record-items {
   display: flex;
@@ -133,6 +237,9 @@
   object-fit: contain;
 }
 @media (max-width: 600px) {
+  .wear-record {
+    gap: 12px;
+  }
   .wear-item-choices {
     grid-template-columns: 1fr;
   }
@@ -151,5 +258,10 @@
   }
   .insights-item > .tag {
     margin-left: 72px;
+  }
+}
+@media (max-width: 390px) {
+  .wear-history:not(.wear-photo-gallery) > .wear-record {
+    flex-direction: column;
   }
 }

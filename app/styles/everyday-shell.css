@@ -36,19 +36,19 @@
   outline: 3px solid #f7d5df;
   outline-offset: 2px;
 }
-.sidebar .save-indicator-content {
+.save-indicator-content {
   display: grid;
   min-width: 0;
   gap: 4px;
 }
-.sidebar .save-indicator-label {
+.save-indicator-label {
   color: inherit;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 650;
 }
 .sidebar .save-indicator-help {
   color: #d3c2c9;
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.5;
 }
 .sidebar .save-indicator[data-save-status='saved'] {
@@ -56,6 +56,27 @@
 }
 .sidebar .save-indicator:is([data-save-status='error'], [data-save-status='conflict']) {
   color: #ffc3cc;
+}
+.more-menu .save-indicator {
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper);
+}
+.more-menu .save-indicator-help {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.more-menu .save-indicator:is([data-save-status='error'], [data-save-status='conflict']) {
+  color: var(--rose-deep);
+}
+.more-menu .save-indicator:focus-visible {
+  outline: 3px solid var(--rose-deep);
+  outline-offset: 2px;
 }
 #cloud-sync {
   scroll-margin-top: 20px;
@@ -80,8 +101,7 @@
   }
 }
 .everyday-start,
-.everyday-card,
-.everyday-trip {
+.everyday-card {
   min-width: 0;
   border: 1px solid var(--line);
   background: var(--paper);
@@ -240,25 +260,6 @@
   padding-left: 8px;
   padding-right: 8px;
 }
-.everyday-trip {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  padding: 20px 24px;
-}
-.everyday-trip > div {
-  flex: 1;
-  min-width: 0;
-}
-.everyday-trip strong {
-  overflow-wrap: anywhere;
-}
-.everyday-trip p {
-  color: var(--muted);
-  font-size: 12px;
-  margin: 6px 0 0;
-}
 .quick-search .MuiOutlinedInput-root {
   width: 100%;
 }
@@ -389,13 +390,6 @@
   .everyday-plan {
     align-items: flex-start;
     flex-direction: column;
-  }
-  .everyday-trip {
-    flex-wrap: wrap;
-    padding: 18px;
-  }
-  .everyday-trip > .btn {
-    width: 100%;
   }
   .quick-search-result.MuiButton-root {
     padding: 10px 6px;

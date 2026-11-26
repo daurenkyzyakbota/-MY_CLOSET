@@ -137,20 +137,40 @@ export default function AccountDetails() {
         </div>
         <div className="col-12 col-lg-6">
           <div className="account-copy">
-            <div className="account-identity">
+            <h3>Профиль в сообществе</h3>
+            <div className="closet-profile-account-identity">
               <ProfileAvatar profile={social.profile || { name: cloud.user.name }} large />
               <div>
-                <h3>{social.profile ? `@${social.profile.username}` : 'Профиль в сообществе'}</h3>
-                <p>Фото, описание, ник и настройки общения.</p>
+                {social.profile ? (
+                  <>
+                    <strong>{social.profile.name}</strong>
+                    <span className="social-handle">@{social.profile.username}</span>
+                  </>
+                ) : (
+                  <p>Добавьте фото и ник, чтобы публиковать образы и общаться.</p>
+                )}
               </div>
             </div>
-            <AppButton className="btn btn-secondary" disabled={!!working || !social.ready || !cloud.online} onClick={() => setEditingProfile(true)}>
-              <Icon name="user" />
-              {social.profile ? 'Редактировать профиль' : 'Создать профиль'}
-            </AppButton>
-            <p className="footnote">Публичное имя и описание сохраняются отдельно от имени для входа.</p>
-            <Link className="btn btn-ghost" href="/settings">
-              Личный профиль: город, стили и цвета
+            <div className="closet-profile-account-actions">
+              <AppButton
+                className="btn btn-secondary"
+                disabled={!!working || !social.ready || !cloud.online}
+                onClick={() => setEditingProfile(true)}
+              >
+                <Icon name={social.profile ? 'edit' : 'plus'} />
+                {social.profile ? 'Редактировать профиль' : 'Создать профиль'}
+              </AppButton>
+              {social.profile && (
+                <Link
+                  className="btn btn-ghost"
+                  href={'/people/' + encodeURIComponent(social.profile.username)}
+                >
+                  Открыть профиль
+                </Link>
+              )}
+            </div>
+            <Link className="closet-profile-settings-link" href="/settings">
+              Личные настройки гардероба
             </Link>
           </div>
         </div>
@@ -161,6 +181,7 @@ export default function AccountDetails() {
         <Modal title={social.profile ? 'Редактировать профиль' : 'Создать профиль'} onClose={() => setEditingProfile(false)}>
           <ProfileEditor
             key={userId}
+            inDialog
             profile={social.profile}
             onCancel={() => setEditingProfile(false)}
             onSaved={() => {

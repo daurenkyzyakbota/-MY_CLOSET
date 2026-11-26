@@ -208,7 +208,20 @@ export default function DevicesPage() {
                 ))}
               </div>
               <div id="device-access-content" className="device-access-content">
-                {showConnection && (
+                {showConnection && info?.loopbackOnly && (
+                  <>
+                    <div className="device-access-status">
+                      <Icon name="devices" />
+                      <span>Локально · только на этом компьютере</span>
+                    </div>
+                    <h3>Откройте доступ по Wi-Fi</h3>
+                    <p>
+                      Остановите сервер, запущенный ярлыком, и выполните <code>npm.cmd run dev</code>{' '}
+                      в папке проекта. Затем откройте этот раздел снова.
+                    </p>
+                  </>
+                )}
+                {showConnection && !info?.loopbackOnly && (
                   <>
                     <div className={`device-access-status${info?.isHosted ? ' is-hosted' : ''}`}>
                       <Icon name={info?.isHosted ? 'external' : 'devices'} />

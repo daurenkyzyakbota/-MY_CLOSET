@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import { useSocial } from '@/components/providers/social-provider.jsx';
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { ConfirmDialog, Field, Icon, ItemArt, Modal } from '@/components/ui/ui.jsx';
@@ -10,6 +12,7 @@ import {
   ReportDialog,
   ShareDialog,
   SocialNotice,
+  socialCountWord,
   socialDate,
   useSocialCollection,
 } from './social-common.jsx';
@@ -17,19 +20,156 @@ import InspirationDialog from './inspiration-dialog.jsx';
 
 const visibilityLabels = { private: 'Только мне', friends: 'Для друзей', public: 'Для всех' };
 
-function PublishedItem({ item }) {
+// Short "how long ago" label for the feed, like "5 мин" or "3 ч"; older posts show the date.
+function socialAgo(value) {
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return '';
+  const minutes = Math.floor((Date.now() - time) / 60000);
+  if (minutes < 1) return 'только что';
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ч`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} дн`;
+  return socialDate(value);
+}
+
+function ItemPicture({ item, alt = item.name }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [item.photo]);
+  return item.photo && !failed ? (
+    <img src={item.photo} alt={alt} loading="lazy" onError={() => setFailed(true)} />
+  ) : (
+    <ItemArt item={{ ...item, photo: '' }} />
+  );
+}
+
+function PublishedItem({ item }) {
   return (
     <div className="social-published-item">
       <div className="social-item-art">
-        {item.photo && !failed ? (
-          <img src={item.photo} alt={item.name} loading="lazy" onError={() => setFailed(true)} />
-        ) : (
-          <ItemArt item={{ ...item, photo: '' }} />
-        )}
+        <ItemPicture item={item} />
       </div>
       <span>{item.name}</span>
+    </div>
+  );
+}
+
+// Swipeable gallery: the whole outfit first, then every item on its own slide.
+// Double-click (double-tap on phones) likes the post, as in photo feeds.
+function PostGallery({ post, items, onDoubleLike }) {
+  const trackRef = useRef(null);
+  const [index, setIndex] = useState(0);
+  const [burst, setBurst] = useState(0);
+  const slides = items.length > 1 ? [{ id: 'all', collage: true }, ...items] : items;
+  const count = slides.length;
+
+  function scrollTo(next) {
+    const track = trackRef.current;
+    if (!track) return;
+    const target = Math.max(0, Math.min(count - 1, next));
+    track.scrollTo({ left: target * track.clientWidth, behavior: 'smooth' });
+  }
+
+  function syncIndex() {
+    const track = trackRef.current;
+    if (!track || !track.clientWidth) return;
+    setIndex(Math.round(track.scrollLeft / track.clientWidth));
+  }
+
+  function doubleLike() {
+    if (!onDoubleLike) return;
+    setBurst((value) => value + 1);
+    onDoubleLike();
+  }
+
+  return (
+    <div className="community-gallery">
+      <div
+        ref={trackRef}
+        className="community-gallery-track"
+        role="group"
+        aria-roledescription="галерея"
+        aria-label={`Вещи образа «${post.title}»`}
+        tabIndex={count > 1 ? 0 : undefined}
+        onScroll={syncIndex}
+        onDoubleClick={doubleLike}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            scrollTo(index + 1);
+          } else if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            scrollTo(index - 1);
+          }
+        }}
+      >
+        {slides.map((slide, position) => (
+          <figure
+            className="community-gallery-slide"
+            key={slide.id}
+            aria-label={`${position + 1} из ${count}`}
+          >
+            {slide.collage ? (
+              <div
+                className={`community-gallery-collage is-${Math.min(items.length, 4)}`}
+              >
+                {items.slice(0, 4).map((item) => (
+                  <div className="community-gallery-art" key={item.id}>
+                    <ItemPicture item={item} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="community-gallery-art is-single">
+                <ItemPicture item={slide} />
+              </div>
+            )}
+            <figcaption>
+              {slide.collage
+                ? `Весь образ · ${items.length} ${socialCountWord(items.length, 'вещь', 'вещи', 'вещей')}`
+                : slide.name}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+      {count > 1 && (
+        <>
+          <span className="community-gallery-counter" aria-hidden="true">
+            {index + 1}/{count}
+          </span>
+          {index > 0 && (
+            <button
+              type="button"
+              className="community-gallery-nav is-prev"
+              aria-label="Предыдущая вещь"
+              onClick={() => scrollTo(index - 1)}
+            >
+              <Icon name="chevron-left" size={18} />
+            </button>
+          )}
+          {index < count - 1 && (
+            <button
+              type="button"
+              className="community-gallery-nav is-next"
+              aria-label="Следующая вещь"
+              onClick={() => scrollTo(index + 1)}
+            >
+              <Icon name="chevron-right" size={18} />
+            </button>
+          )}
+          <div className="community-gallery-dots" aria-hidden="true">
+            {slides.map((slide, position) => (
+              <span key={slide.id} className={position === index ? 'is-active' : ''} />
+            ))}
+          </div>
+        </>
+      )}
+      {burst > 0 && (
+        <span key={burst} className="community-like-burst" aria-hidden="true">
+          <Icon name="heart" size={96} fill="currentColor" />
+        </span>
+      )}
     </div>
   );
 }
@@ -340,11 +480,16 @@ export default function PostCard({
   onUpdated,
   onDeleted,
   expanded = false,
+  community = false,
   onTagSelect,
 }) {
   const social = useSocial();
   const [post, setPost] = useState(initialPost);
   const [comments, setComments] = useState(expanded);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const menuId = useId();
+  const menuButtonId = useId();
+  const commentsId = useId();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [report, setReport] = useState(false);
@@ -353,7 +498,7 @@ export default function PostCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => setPost(initialPost), [initialPost]);
-  const active = !!social.user && !!social.profile;
+  const active = !!social.user && !!social.profile && !social.profile.banned;
   const owned = post.owned || social.user?.id === post.author?.id;
   function updated(value) {
     setPost(value);
@@ -376,152 +521,372 @@ export default function PostCard({
     await social.request('posts.delete', { postId: post.id });
     onDeleted?.(post.id);
   }
+  function chooseAction(showDialog) {
+    setMenuAnchor(null);
+    showDialog(true);
+  }
   const items = post.snapshot?.items || [];
-  return (
-    <article className="social-post-card social-surface" data-post-id={post.id}>
-      <header className="social-post-header">
-        <Link
-          className="social-person-identity"
-          href={`/people/${encodeURIComponent(post.author.username)}`}
-        >
-          <ProfileAvatar profile={post.author} />
-          <span>
-            <strong>{post.author.name}</strong>
-            <span className="social-handle">@{post.author.username}</span>
-          </span>
-        </Link>
-        <span className="social-post-visibility">
-          {visibilityLabels[post.visibility] || 'Образ'}
-        </span>
-      </header>
-      <div className="social-post-title">
-        <h2>
-          <Link href={`/community?post=${encodeURIComponent(post.id)}`}>{post.title}</Link>
-        </h2>
-        <time dateTime={post.createdAt}>{socialDate(post.createdAt)}</time>
-      </div>
-      {post.description && <p className="social-post-description">{post.description}</p>}
-      {items.length > 0 && (
-        <div className="social-published-items" aria-label="Состав опубликованного образа">
-          {items.map((item) => (
-            <PublishedItem item={item} key={item.id} />
-          ))}
-        </div>
-      )}
-      {!!post.tags?.length && (
-        <div className="social-post-tags">
-          {post.tags.map((tag) =>
-            onTagSelect ? (
-              <AppButton
-                key={tag}
-                className="social-tag-button"
-                onClick={() => onTagSelect(tag)}
-                aria-label={`Показать образы с тегом ${tag}`}
+  const moderator = !owned && !!post.canModerate;
+  const likes = post.likesCount || 0;
+  const commentCount = post.commentsCount || 0;
+  const loginHref = social.user ? '/community?tab=profile' : '/account';
+
+  const menu = (
+    <Menu
+      anchorEl={menuAnchor}
+      open={Boolean(menuAnchor)}
+      onClose={() => setMenuAnchor(null)}
+      slotProps={{
+        list: {
+          id: menuId,
+          className: 'community-post-more-list',
+          'aria-labelledby': menuButtonId,
+        },
+      }}
+    >
+      {owned
+        ? [
+            <MenuItem key="edit" disabled={busy} onClick={() => chooseAction(setEditing)}>
+              <Icon name="edit" size={18} /> Изменить
+            </MenuItem>,
+            <MenuItem key="delete" disabled={busy} onClick={() => chooseAction(setDeleting)}>
+              <Icon name="trash" size={18} /> Удалить
+            </MenuItem>,
+          ]
+        : [
+            <MenuItem key="report" onClick={() => chooseAction(setReport)}>
+              <Icon name="warning" size={18} /> Пожаловаться
+            </MenuItem>,
+            moderator && (
+              <MenuItem
+                key="moderate"
+                className="community-post-moderate"
+                disabled={busy}
+                onClick={() => chooseAction(setDeleting)}
               >
-                #{tag}
-              </AppButton>
-            ) : (
-              <Link
-                key={tag}
-                href={`/community?tab=feed&tag=${encodeURIComponent(tag)}`}
-                className="social-tag-link"
-                aria-label={`Показать образы с тегом ${tag}`}
-              >
-                #{tag}
-              </Link>
+                <Icon name="shield" size={18} /> Удалить как администратор
+              </MenuItem>
             ),
-          )}
-        </div>
-      )}
-      <div className="social-post-actions">
-        <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
-          <Icon name="outfits" />
-          Собрать из моих вещей
-        </AppButton>
-        {active ? (
+          ].filter(Boolean)}
+    </Menu>
+  );
+
+  const header = (
+    <header className="social-post-header">
+      <Link
+        className="social-person-identity"
+        href={`/people/${encodeURIComponent(post.author.username)}`}
+      >
+        <ProfileAvatar profile={post.author} />
+        <span>
+          <strong>{post.author.name}</strong>
+          <span className="social-handle">
+            @{post.author.username}
+            {community && (
+              <>
+                {' · '}
+                <time dateTime={post.createdAt} title={socialDate(post.createdAt)}>
+                  {socialAgo(post.createdAt)}
+                </time>
+              </>
+            )}
+          </span>
+        </span>
+      </Link>
+      {community && (owned || active) ? (
+        <div className="community-post-meta">
+          <span className="social-post-visibility">{visibilityLabels[post.visibility] || 'Образ'}</span>
           <AppButton
-            className={`btn btn-ghost${post.liked ? ' is-selected' : ''}`}
-            disabled={busy}
-            aria-pressed={!!post.liked}
-            aria-label={`${post.liked ? 'Убрать лайк' : 'Поставить лайк'}: ${post.title}`}
-            onClick={() => toggle('posts.like', { liked: !post.liked })}
+            id={menuButtonId}
+            className="btn btn-ghost community-post-more"
+            aria-label={`Действия с публикацией: ${post.title}`}
+            aria-haspopup="menu"
+            aria-controls={menuAnchor ? menuId : undefined}
+            aria-expanded={Boolean(menuAnchor)}
+            onClick={(event) => setMenuAnchor(event.currentTarget)}
           >
-            <Icon name="heart" />
-            {post.likesCount || 0}
+            <Icon name="more" />
+          </AppButton>
+          {menu}
+        </div>
+      ) : (
+        <span className="social-post-visibility">{visibilityLabels[post.visibility] || 'Образ'}</span>
+      )}
+    </header>
+  );
+
+  const tags = !!post.tags?.length && (
+    <div className="social-post-tags">
+      {post.tags.map((tag) =>
+        onTagSelect ? (
+          <AppButton
+            key={tag}
+            className="social-tag-button"
+            onClick={() => onTagSelect(tag)}
+            aria-label={`Показать образы с тегом ${tag}`}
+          >
+            #{tag}
           </AppButton>
         ) : (
           <Link
-            className="btn btn-ghost"
-            href={social.user ? '/community?tab=profile' : '/account'}
-            aria-label="Войти, чтобы поставить лайк"
+            key={tag}
+            href={`/community?tab=feed&tag=${encodeURIComponent(tag)}`}
+            className="social-tag-link"
+            aria-label={`Показать образы с тегом ${tag}`}
           >
-            <Icon name="heart" />
-            {post.likesCount || 0}
+            #{tag}
           </Link>
-        )}
-        <AppButton
-          className="btn btn-ghost"
-          aria-expanded={comments}
-          onClick={() => setComments((value) => !value)}
-        >
-          Комментарии · {post.commentsCount || 0}
-        </AppButton>
-        {active && (
-          <AppButton
-            className={`btn btn-ghost${post.saved ? ' is-selected' : ''}`}
-            disabled={busy}
-            aria-pressed={!!post.saved}
-            onClick={() => toggle('posts.saveToCollection', { saved: !post.saved })}
-          >
-            {post.saved ? 'Сохранено ✓' : 'Сохранить'}
-          </AppButton>
-        )}
-        <AppButton
-          className="btn btn-ghost"
-          onClick={() => setSharing(true)}
-          aria-label={`Поделиться образом: ${post.title}`}
-        >
-          Поделиться
-        </AppButton>
-        {owned ? (
-          <>
-            <AppButton className="btn btn-ghost" disabled={busy} onClick={() => setEditing(true)}>
-              <Icon name="edit" />
-              Изменить
-            </AppButton>
-            <AppButton
-              className="btn btn-ghost"
-              disabled={busy}
-              onClick={() => setDeleting(true)}
-              aria-label={`Удалить публикацию: ${post.title}`}
-            >
-              <Icon name="trash" />
-              Удалить
-            </AppButton>
-          </>
-        ) : (
-          active && (
-            <AppButton className="btn btn-ghost" onClick={() => setReport(true)}>
-              Пожаловаться
-            </AppButton>
-          )
-        )}
-      </div>
-      <SocialNotice error>{error}</SocialNotice>
+        ),
+      )}
+    </div>
+  );
+
+  const likeLabel = `${post.liked ? 'Убрать лайк' : 'Поставить лайк'}: ${post.title}. Лайков: ${likes}`;
+  const commentsSection = (
+    <div id={commentsId} hidden={!comments}>
       {comments && (
         <Comments
           key={`${post.id}:${social.user?.id || 'guest'}`}
           post={post}
           onCountChange={(delta) =>
-            updated({ ...post, commentsCount: Math.max(0, (post.commentsCount || 0) + delta) })
+            updated({ ...post, commentsCount: Math.max(0, commentCount + delta) })
           }
         />
+      )}
+    </div>
+  );
+
+  return (
+    <article
+      className={`social-post-card social-surface${community ? ' community-post-card' : ''}`}
+      data-post-id={post.id}
+    >
+      {header}
+      {community ? (
+        <>
+          {items.length > 0 && (
+            <PostGallery
+              post={post}
+              items={items}
+              onDoubleLike={
+                active && !busy ? () => !post.liked && toggle('posts.like', { liked: true }) : null
+              }
+            />
+          )}
+          <div className="community-post-bar">
+            <div className="community-post-bar-main">
+              {active ? (
+                <AppButton
+                  className={`community-post-icon${post.liked ? ' is-liked' : ''}`}
+                  disabled={busy}
+                  aria-pressed={!!post.liked}
+                  aria-label={likeLabel}
+                  title={post.liked ? 'Убрать лайк' : 'Нравится'}
+                  onClick={() => toggle('posts.like', { liked: !post.liked })}
+                >
+                  <Icon name="heart" size={26} fill={post.liked ? 'currentColor' : 'none'} />
+                </AppButton>
+              ) : (
+                <Link
+                  className="community-post-icon"
+                  href={loginHref}
+                  aria-label={`Войти, чтобы поставить лайк. Лайков: ${likes}`}
+                >
+                  <Icon name="heart" size={26} />
+                </Link>
+              )}
+              <AppButton
+                className="community-post-icon"
+                aria-label={`Комментарии: ${commentCount}`}
+                aria-expanded={comments}
+                aria-controls={commentsId}
+                title="Комментарии"
+                onClick={() => setComments((value) => !value)}
+              >
+                <Icon name="message" size={25} />
+              </AppButton>
+              <AppButton
+                className="community-post-icon"
+                onClick={() => setSharing(true)}
+                aria-label={`Поделиться образом: ${post.title}`}
+                title="Поделиться"
+              >
+                <Icon name="send" size={24} />
+              </AppButton>
+            </div>
+            {active && (
+              <AppButton
+                className={`community-post-icon${post.saved ? ' is-saved' : ''}`}
+                disabled={busy}
+                aria-pressed={!!post.saved}
+                aria-label={post.saved ? 'Убрать из сохранённого' : 'Сохранить образ'}
+                title={post.saved ? 'Сохранено' : 'Сохранить'}
+                onClick={() => toggle('posts.saveToCollection', { saved: !post.saved })}
+              >
+                <Icon name="bookmark" size={25} fill={post.saved ? 'currentColor' : 'none'} />
+              </AppButton>
+            )}
+          </div>
+          <p className="community-post-likes">
+            {likes > 0
+              ? `${likes} ${socialCountWord(likes, 'отметка', 'отметки', 'отметок')} «Нравится»`
+              : 'Пока без лайков — будьте первым'}
+          </p>
+          <div className="community-post-caption">
+            <h2>
+              <Link href={`/community?post=${encodeURIComponent(post.id)}`}>{post.title}</Link>
+            </h2>
+            {post.description && (
+              <p className="social-post-description">
+                <Link href={`/people/${encodeURIComponent(post.author.username)}`}>
+                  {post.author.username}
+                </Link>{' '}
+                {post.description}
+              </p>
+            )}
+          </div>
+          {tags}
+          <button
+            type="button"
+            className="community-post-comments-link"
+            aria-expanded={comments}
+            aria-controls={commentsId}
+            onClick={() => setComments((value) => !value)}
+          >
+            {comments
+              ? 'Скрыть комментарии'
+              : commentCount > 0
+                ? `Посмотреть ${commentCount === 1 ? '' : 'все '}${commentCount} ${socialCountWord(commentCount, 'комментарий', 'комментария', 'комментариев')}`
+                : 'Добавить комментарий…'}
+          </button>
+          <SocialNotice error>{error}</SocialNotice>
+          {commentsSection}
+          <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
+            <Icon name="outfits" />
+            Собрать из моих вещей
+          </AppButton>
+        </>
+      ) : (
+        <>
+          <div className="social-post-title">
+            <h2>
+              <Link href={`/community?post=${encodeURIComponent(post.id)}`}>{post.title}</Link>
+            </h2>
+            <time dateTime={post.createdAt}>{socialDate(post.createdAt)}</time>
+          </div>
+          {items.length > 0 && (
+            <div className="social-published-items" aria-label="Состав опубликованного образа">
+              {items.map((item) => (
+                <PublishedItem item={item} key={item.id} />
+              ))}
+            </div>
+          )}
+          {post.description && <p className="social-post-description">{post.description}</p>}
+          {tags}
+          <div className="social-post-actions">
+            {active ? (
+              <AppButton
+                className={`btn btn-ghost${post.liked ? ' is-selected' : ''}`}
+                disabled={busy}
+                aria-pressed={!!post.liked}
+                aria-label={likeLabel}
+                onClick={() => toggle('posts.like', { liked: !post.liked })}
+              >
+                <Icon name="heart" fill={post.liked ? 'currentColor' : 'none'} />
+                {likes}
+              </AppButton>
+            ) : (
+              <Link
+                className="btn btn-ghost"
+                href={loginHref}
+                aria-label={`Войти, чтобы поставить лайк. Лайков: ${likes}`}
+              >
+                <Icon name="heart" />
+                {likes}
+              </Link>
+            )}
+            <AppButton
+              className="btn btn-ghost"
+              aria-label={`Комментарии: ${commentCount}`}
+              aria-expanded={comments}
+              aria-controls={commentsId}
+              onClick={() => setComments((value) => !value)}
+            >
+              <Icon name="message" size={18} />
+              {`Комментарии · ${commentCount}`}
+            </AppButton>
+            {active && (
+              <AppButton
+                className={`btn btn-ghost${post.saved ? ' is-selected' : ''}`}
+                disabled={busy}
+                aria-pressed={!!post.saved}
+                onClick={() => toggle('posts.saveToCollection', { saved: !post.saved })}
+              >
+                {post.saved ? 'Сохранено ✓' : 'Сохранить'}
+              </AppButton>
+            )}
+            <AppButton
+              className="btn btn-ghost community-post-share"
+              onClick={() => setSharing(true)}
+              aria-label={`Поделиться образом: ${post.title}`}
+            >
+              <Icon name="share" size={18} />
+              <span>Поделиться</span>
+            </AppButton>
+            {owned ? (
+              <>
+                <AppButton className="btn btn-ghost" disabled={busy} onClick={() => setEditing(true)}>
+                  <Icon name="edit" />
+                  Изменить
+                </AppButton>
+                <AppButton
+                  className="btn btn-ghost"
+                  disabled={busy}
+                  onClick={() => setDeleting(true)}
+                  aria-label={`Удалить публикацию: ${post.title}`}
+                >
+                  <Icon name="trash" />
+                  Удалить
+                </AppButton>
+              </>
+            ) : (
+              active && (
+                <>
+                  <AppButton className="btn btn-ghost" onClick={() => setReport(true)}>
+                    Пожаловаться
+                  </AppButton>
+                  {moderator && (
+                    <AppButton
+                      className="btn btn-ghost"
+                      disabled={busy}
+                      onClick={() => setDeleting(true)}
+                      aria-label={`Удалить как администратор: ${post.title}`}
+                    >
+                      <Icon name="shield" />
+                      Удалить как админ
+                    </AppButton>
+                  )}
+                </>
+              )
+            )}
+            <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
+              <Icon name="outfits" />
+              Собрать из моих вещей
+            </AppButton>
+          </div>
+          <SocialNotice error>{error}</SocialNotice>
+          {commentsSection}
+        </>
       )}
       {editing && <PostEditor post={post} onClose={() => setEditing(false)} onSaved={updated} />}
       {deleting && (
         <ConfirmDialog
-          title="Удалить публикацию?"
-          description="Образ, его комментарии и лайки исчезнут из сообщества. Личный образ и вещи в вашем гардеробе останутся."
+          title={moderator ? 'Удалить публикацию как администратор?' : 'Удалить публикацию?'}
+          description={
+            moderator
+              ? `Образ @${post.author.username} исчезнет из сообщества вместе с лайками и комментариями, а жалобы на него будут закрыты. Отменить это нельзя.`
+              : 'Образ, его комментарии и лайки исчезнут из сообщества. Личный образ и вещи в вашем гардеробе останутся.'
+          }
           onClose={() => setDeleting(false)}
           onConfirm={remove}
         />

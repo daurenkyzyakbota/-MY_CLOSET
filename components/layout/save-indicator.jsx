@@ -5,38 +5,58 @@ import { useCloset } from '@/components/providers/closet-provider.jsx';
 import { useCloudSync } from '@/components/providers/cloud-sync-provider.jsx';
 import { Icon } from '@/components/ui/ui.jsx';
 
-export default function SaveIndicator() {
+export default function SaveIndicator({ onClick }) {
   const closet = useCloset();
   const cloud = useCloudSync();
+  const localSaving = closet.saveStatus === 'saving';
+  const localError = closet.saveStatus === 'error';
   const status = !closet.ready || cloud.sessionLoading
     ? 'loading'
     : closet.storageMode === 'memory'
       ? 'error'
-      : cloud.saveStatus || 'local';
+      : localSaving
+        ? 'saving'
+        : localError
+          ? 'error'
+          : cloud.saveStatus || 'local';
   const label = status === 'loading'
     ? 'Открываем гардероб…'
     : closet.storageMode === 'memory'
       ? 'Только до закрытия страницы'
-      : cloud.saveMessage || 'Сохранено на устройстве';
+      : localSaving
+        ? 'Сохраняем на устройстве…'
+        : localError
+          ? 'Не сохранено на устройстве'
+          : cloud.saveMessage || 'Сохранено на устройстве';
   const detail = !closet.ready || cloud.sessionLoading
     ? 'Проверяем, где сохранены ваши вещи.'
     : closet.storageMode === 'memory'
       ? 'Скачайте резервную копию: браузер временно не сохраняет данные.'
-      : cloud.configured === false
-        ? 'Облачное сохранение пока недоступно на этом сервере.'
-        : status === 'conflict'
-          ? 'Сравните копии в аккаунте, чтобы объединить изменения.'
-          : status === 'error'
-            ? 'Откройте аккаунт, чтобы проверить синхронизацию.'
-            : status === 'offline'
-              ? 'Изменения синхронизируются после восстановления сети.'
-              : cloud.connected
-                ? 'Войдите с этой почтой на другом устройстве, чтобы открыть гардероб.'
-                : 'Подключите аккаунт, чтобы открывать гардероб на других устройствах.';
-  const href = cloud.user && cloud.user.emailVerified !== false && !cloud.requiresHttps
-    ? '/account#cloud-sync'
-    : '/account';
-  const accessibleLabel = [label, detail, 'Открыть настройки аккаунта и синхронизации.'].join(' ');
+      : localSaving
+        ? 'Записываем изменения в гардероб. Дождитесь завершения сохранения.'
+        : localError
+          ? closet.saveError || 'Не удалось записать изменения. Повторите сохранение.'
+          : cloud.configured === false
+            ? 'Облачное сохранение пока недоступно на этом сервере.'
+            : status === 'conflict'
+              ? 'Сравните копии в аккаунте, чтобы объединить изменения.'
+              : status === 'error'
+                ? 'Откройте аккаунт, чтобы проверить синхронизацию.'
+                : status === 'offline'
+                  ? 'Изменения синхронизируются после восстановления сети.'
+                  : cloud.connected
+                    ? 'Войдите с этой почтой на другом устройстве, чтобы открыть гардероб.'
+                    : 'Подключите аккаунт, чтобы открывать гардероб на других устройствах.';
+  const localIssue = closet.storageMode === 'memory' || localError;
+  const href = localIssue
+    ? '/settings'
+    : cloud.user && cloud.user.emailVerified !== false && !cloud.requiresHttps
+      ? '/account#cloud-sync'
+      : '/account';
+  const action = localIssue
+    ? 'Открыть настройки и резервные копии.'
+    : 'Открыть настройки аккаунта и синхронизации.';
+  const accessibleLabel = [label, detail, action].join(' ');
 
   return (
     <Link
@@ -45,6 +65,7 @@ export default function SaveIndicator() {
       data-save-status={status}
       title={accessibleLabel}
       aria-label={accessibleLabel}
+      onClick={onClick}
     >
       <Icon name={
         ['saved', 'local'].includes(status)

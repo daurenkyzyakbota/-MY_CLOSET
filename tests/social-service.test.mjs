@@ -172,10 +172,48 @@ test('anonymous mutations and unknown operations never acquire a database connec
   );
   await assert.rejects(service.execute('messages.send', {}), (error) => error.status === 401);
   await assert.rejects(
+    service.execute('notifications.preferences.save', { notifications: { likes: false } }),
+    (error) => error.status === 401,
+  );
+  await assert.rejects(
     service.execute('constructor', {}, user),
     (error) => error.code === 'UNKNOWN_ACTION',
   );
   assert.equal(db.calls.length, 0);
+});
+
+test('notification preferences update only supplied switches on the signed-in profile', async () => {
+  const action = 'notifications.preferences.save';
+  const previouslySaved = { ...profileRow.notifications, comments: false };
+  let stored = { ...profileRow, notifications: previouslySaved };
+  const db = recorder((sql, values) => {
+    if (sql.startsWith('UPDATE public.mycloset_profiles')) {
+      assert.match(sql, /SET notifications=notifications \|\| \$2::jsonb\s+WHERE user_id=\$1/);
+      assert.deepEqual(values, [user.id, '{"likes":false}']);
+      if (!stored) return { rows: [] };
+      stored = { ...stored, notifications: { ...stored.notifications, ...JSON.parse(values[1]) } };
+      return { rows: [{ user_id: stored.user_id }] };
+    }
+    if (sql.includes('FROM public.mycloset_profiles p WHERE p.user_id=$2'))
+      return { rows: stored ? [stored] : [] };
+    return { rows: [] };
+  });
+  const service = createSocialService({ pool: db.pool });
+  for (const input of [
+    { notifications: { likes: false }, name: 'Новое имя' },
+    { notifications: { likes: 'false' } },
+    { notifications: { admin: true } },
+    { notifications: {} },
+  ])
+    await assert.rejects(service.execute(action, input, user), (error) => error.status === 400);
+  assert.equal(db.calls.some(({ sql }) => sql.startsWith('UPDATE')), false);
+
+  const patch = { notifications: { likes: false } };
+  const { profile } = await service.execute(action, patch, user);
+  assert.equal(profile.name, profileRow.name);
+  assert.deepEqual(profile.notifications, { ...previouslySaved, likes: false });
+  stored = null;
+  await assert.rejects(service.execute(action, patch, user), (error) => error.code === 'PROFILE_REQUIRED');
 });
 
 test('public profile responses never include email, auth state or raw photos', async () => {

@@ -281,7 +281,7 @@ test('configuration and consent summaries describe every persisted collection wi
   const state = emptyState();
   assert.equal(
     wardrobeSummary(state),
-    'Вещей: 0, образов: 0, планов: 0, покупок: 0. Отметок носки: 0, капсул: 0, поездок: 0.',
+    'Вещей: 0, образов: 0, планов: 0, покупок: 0. Отметок носки: 0.',
   );
 });
 

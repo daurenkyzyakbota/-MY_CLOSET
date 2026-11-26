@@ -28,10 +28,10 @@ export default function CloudPhotoStorage() {
   return (
     <section className="settings-card" aria-label="Хранилище фотографий">
       <h2>Больше места для любимых вещей</h2>
-      <p>Фото сохраняются отдельно от списка вещей. Они доступны только вашему аккаунту и входят в полную резервную копию.</p>
+      <p>Фотографии вещей и снимки из фотодневника доступны только вашему аккаунту и входят в полную резервную копию.</p>
       {stats ? <p>Фотографий: {stats.count}. Использовано {size(stats.bytes)} из {size(stats.limit)}.</p>
         : <p className="footnote">{error || 'Проверяем объём фотографий…'}</p>}
-      <p className="footnote">В объём входят и ранее загруженные фотографии удалённых вещей.</p>
+      <p className="footnote">В объём входят и ранее загруженные фотографии, которые уже убраны из гардероба или фотодневника.</p>
       {error && <AppButton className="btn btn-secondary" onClick={() => setAttempt((value) => value + 1)}>Повторить проверку</AppButton>}
     </section>
   );

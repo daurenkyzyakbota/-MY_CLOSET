@@ -172,6 +172,7 @@ export default function StylistPage() {
     criteria.date === localDate() && weather?.current?.dateTime?.slice(0, 10) === criteria.date
       ? weather.current
       : null;
+  const hasForecast = Boolean(day || current);
   const weatherCode = current?.weatherCode ?? day?.weatherCode ?? null;
   const updated = weather?.updatedAt
     ? new Date(weather.updatedAt).toLocaleTimeString('ru-RU', {
@@ -408,7 +409,7 @@ export default function StylistPage() {
                         </div>
                         {weatherError && (
                           <p className="weather-error" role="alert">
-                            {weatherError} В стилисте можно указать погоду вручную.
+                            {weatherError}
                           </p>
                         )}
                         {weatherLoading && (
@@ -416,62 +417,53 @@ export default function StylistPage() {
                             Загружаем прогноз…
                           </p>
                         )}
-                        {weather && !day && !current && (
-                          <p className="weather-status">
-                            На выбранную дату прогноза пока нет. Укажите погоду вручную или выберите
-                            другую дату.
-                          </p>
+                        {weather && !hasForecast && !weatherLoading && !weatherError && (
+                          <p className="weather-status">На выбранную дату прогноза пока нет.</p>
                         )}
-                        <div className="weather-current">
-                          <span className="weather-symbol">
-                            <Icon name={weatherGlyph(weatherCode)} />
-                          </span>
-                          <strong className="weather-temperature">
-                            {current
-                              ? degrees(current.temperature)
-                              : day
-                                ? degrees(day.tempMin) + ' / ' + degrees(day.tempMax)
-                                : '—'}
-                          </strong>
-                          <div>
-                            <span>
-                              {day || current
-                                ? weatherDescription(weatherCode)
-                                : 'Прогноз ещё не загружен'}
-                            </span>
-                            {current ? (
-                              <p className="item-meta">
-                                Сейчас · ощущается как {degrees(current.feelsLike)}
-                              </p>
-                            ) : (
-                              day && (
-                                <p className="item-meta">
-                                  Ощущается {degrees(day.feelsMin)} / {degrees(day.feelsMax)}
-                                </p>
-                              )
-                            )}
-                          </div>
-                        </div>
-                        {(day || current) && (
-                          <div className="weather-facts">
-                            <span>
-                              <Icon name="rain" />
-                              Вероятность осадков:{' '}
-                              {Number.isFinite(day?.rainProbability)
-                                ? day.rainProbability + '%'
-                                : 'нет данных'}
-                            </span>
-                            <span>
-                              <Icon name="wind" />
-                              Ветер:{' '}
-                              {Number.isFinite(current?.windSpeed ?? day?.windSpeed)
-                                ? (current?.windSpeed ?? day?.windSpeed) + ' м/с'
-                                : 'нет данных'}
-                            </span>
-                          </div>
+                        {hasForecast && (
+                          <>
+                            <div className="weather-current">
+                              <span className="weather-symbol">
+                                <Icon name={weatherGlyph(weatherCode)} />
+                              </span>
+                              <strong className="weather-temperature">
+                                {current
+                                  ? degrees(current.temperature)
+                                  : degrees(day.tempMin) + ' / ' + degrees(day.tempMax)}
+                              </strong>
+                              <div>
+                                <span>{weatherDescription(weatherCode)}</span>
+                                {current ? (
+                                  <p className="item-meta">
+                                    Сейчас · ощущается как {degrees(current.feelsLike)}
+                                  </p>
+                                ) : (
+                                  <p className="item-meta">
+                                    Ощущается {degrees(day.feelsMin)} / {degrees(day.feelsMax)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="weather-facts">
+                              <span>
+                                <Icon name="rain" />
+                                Вероятность осадков:{' '}
+                                {Number.isFinite(day?.rainProbability)
+                                  ? day.rainProbability + '%'
+                                  : 'нет данных'}
+                              </span>
+                              <span>
+                                <Icon name="wind" />
+                                Ветер:{' '}
+                                {Number.isFinite(current?.windSpeed ?? day?.windSpeed)
+                                  ? (current?.windSpeed ?? day?.windSpeed) + ' м/с'
+                                  : 'нет данных'}
+                              </span>
+                            </div>
+                          </>
                         )}
                         <div className="weather-meta">
-                          {weather ? (
+                          {weather && (
                             <span>
                               Источник:{' '}
                               <a
@@ -483,8 +475,15 @@ export default function StylistPage() {
                               </a>
                               {updated && ' · обновлено ' + updated}
                             </span>
-                          ) : (
-                            <span>Прогноз появится при подключении к интернету.</span>
+                          )}
+                          {!weatherLoading && (weatherError || (weather && !hasForecast)) && (
+                            <AppButton
+                              className="btn btn-secondary"
+                              type="button"
+                              onClick={() => change('weatherMode', 'manual')}
+                            >
+                              Указать погоду вручную
+                            </AppButton>
                           )}
                           <AppButton
                             className="btn btn-ghost"

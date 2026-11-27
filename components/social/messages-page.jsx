@@ -9,6 +9,7 @@ import { useNarrowSocialScreen, useSocialPoll } from '@/components/social/use-so
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { EmptyState, Field, Icon, Loading, PageHeader } from '@/components/ui/ui.jsx';
 import MessageSearch from '@/components/social/message-search.jsx';
+import { RichText } from '@/components/social/social-common.jsx';
 import {
   loadMessageBatch,
   mergeMessages,
@@ -700,7 +701,11 @@ function MessagesContent() {
                           <img src={message.photo} alt="Фото в сообщении" loading="lazy" />
                         </a>
                       )}
-                      {message.text && <p>{message.text}</p>}
+                      {message.text && (
+                        <p>
+                          <RichText text={message.text} />
+                        </p>
+                      )}
                       {message.post &&
                         (message.post.unavailable ? (
                           <span className="social-shared-post is-unavailable">

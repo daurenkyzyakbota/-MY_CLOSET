@@ -10,6 +10,7 @@ import { ConfirmDialog, Field, Icon, ItemArt, Modal } from '@/components/ui/ui.j
 import {
   ProfileAvatar,
   ReportDialog,
+  RichText,
   ShareDialog,
   SocialNotice,
   socialCountWord,
@@ -618,7 +619,9 @@ function CommentItem({ comment, busy, canWrite, onLike, onReply, onEdit, onDelet
           <span className="social-handle">@{comment.author.username}</span>
         </span>
       </Link>
-      <p>{comment.text}</p>
+      <p>
+        <RichText text={comment.text} />
+      </p>
       <div className="social-comment-footer">
         <time dateTime={comment.createdAt}>{socialDate(comment.createdAt)}</time>
         <div>
@@ -931,7 +934,7 @@ export default function PostCard({
                 <Link href={`/people/${encodeURIComponent(post.author.username)}`}>
                   {post.author.username}
                 </Link>{' '}
-                {post.description}
+                <RichText text={post.description} />
               </p>
             )}
           </div>
@@ -972,7 +975,11 @@ export default function PostCard({
               ))}
             </div>
           )}
-          {post.description && <p className="social-post-description">{post.description}</p>}
+          {post.description && (
+            <p className="social-post-description">
+              <RichText text={post.description} />
+            </p>
+          )}
           {tags}
           <div className="social-post-actions">
             {active ? (

@@ -820,3 +820,317 @@
     opacity: 0.75;
   }
 }
+
+/* #теги и @упоминания в тексте. */
+.social-rich-tag,
+.social-rich-mention {
+  color: var(--rose-deep);
+  font-weight: 600;
+  text-decoration: none;
+}
+.social-rich-tag:hover,
+.social-rich-mention:hover {
+  text-decoration: underline;
+}
+
+/* Stories. */
+.stories-bar {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+}
+.stories-track {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.stories-track::-webkit-scrollbar {
+  display: none;
+}
+.story-bubble {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 74px;
+}
+.story-bubble > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.story-ring {
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  border: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, #f2b46b, #e0587a, #a95972, #f2b46b);
+  cursor: pointer;
+}
+.story-ring.is-seen {
+  background: var(--line);
+}
+.story-ring.is-empty {
+  background: none;
+}
+.story-ring .social-avatar {
+  width: 62px;
+  height: 62px;
+  border: 3px solid var(--paper);
+  border-radius: 50%;
+  font-size: 20px;
+}
+.story-ring-profile .social-avatar-large {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+}
+.closet-profile-avatar .story-ring-profile {
+  padding: 4px;
+}
+.story-add {
+  position: absolute;
+  top: 48px;
+  right: 4px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  padding: 0;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: var(--rose-deep);
+  color: #fff;
+  cursor: pointer;
+}
+.story-placeholder {
+  flex: 0 0 auto;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: var(--line);
+  animation: story-pulse 1.2s ease-in-out infinite alternate;
+}
+.stories-hint {
+  align-self: center;
+  max-width: 280px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+@keyframes story-pulse {
+  to {
+    opacity: 0.4;
+  }
+}
+.story-viewer {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(16 10 14 / 0.92);
+}
+.story-frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(420px, 100vw);
+  height: min(760px, 100dvh);
+  overflow: hidden;
+  border-radius: 18px;
+  background: #1d1519;
+  user-select: none;
+}
+.story-frame > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.story-progress {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+  left: 10px;
+  display: flex;
+  gap: 4px;
+}
+.story-progress > span {
+  flex: 1;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.35);
+}
+.story-progress > span > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #fff;
+}
+.story-progress .is-done {
+  width: 100%;
+}
+.story-progress .is-active {
+  animation-name: story-progress;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes story-progress {
+  to {
+    width: 100%;
+  }
+}
+.story-header {
+  position: absolute;
+  z-index: 3;
+  top: 22px;
+  right: 10px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.story-author {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #fff;
+  text-decoration: none;
+}
+.story-author .social-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 12px;
+}
+.story-author strong {
+  font-size: 13px;
+}
+.story-author time {
+  color: rgb(255 255 255 / 0.7);
+  font-size: 12px;
+}
+.story-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+}
+.story-icon:hover {
+  background: rgb(255 255 255 / 0.15);
+}
+.story-caption {
+  position: absolute;
+  z-index: 3;
+  right: 16px;
+  bottom: 22px;
+  left: 16px;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+}
+.story-caption .social-rich-tag,
+.story-caption .social-rich-mention {
+  color: #ffd6e2;
+}
+.story-missing {
+  color: #fff;
+}
+.story-tap {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  width: 35%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.story-tap.is-prev {
+  left: 0;
+}
+.story-tap.is-next {
+  right: 0;
+  width: 65%;
+}
+.story-composer {
+  display: grid;
+  gap: 14px;
+}
+.story-composer-photo {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  border: 2px dashed var(--line);
+  border-radius: 18px;
+  background: var(--cream);
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.story-composer-photo > span {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+.story-composer-photo.has-photo {
+  border-style: solid;
+}
+.story-composer-photo img {
+  width: 100%;
+  max-height: 360px;
+  object-fit: contain;
+}
+
+/* Profile: all outfits or only «А или Б» polls. */
+.closet-profile-kinds {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.closet-profile-kinds [aria-pressed='true'] {
+  background: var(--rose-soft);
+  color: var(--rose-deep);
+}
+.closet-profile-poll-mark {
+  font-size: 11px;
+  font-weight: 800;
+}
+.closet-profile-tile-count.is-poll {
+  font-size: 11px;
+  font-weight: 800;
+}
+@media (max-width: 760px) {
+  .stories-bar {
+    margin-inline: -4px;
+    padding: 12px;
+  }
+  .story-frame {
+    border-radius: 0;
+  }
+}

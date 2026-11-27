@@ -16,6 +16,7 @@ import {
   SocialNotice,
   useSocialCollection,
 } from './social-common.jsx';
+import { StoriesBar } from './stories.jsx';
 
 const tabs = [
   ['feed', 'Лента', 'outfits'],
@@ -838,6 +839,7 @@ function CommunityContent() {
               ) : tab === 'feed' ? (
                 <div className="community-feed-layout">
                   <div className="community-feed-main">
+                    <StoriesBar />
                     <FeedExplorer scope={scope} onScopeChange={setScope} />
                   </div>
                   <div className="community-feed-side">

@@ -18,6 +18,7 @@ import {
 } from './social-common.jsx';
 import PostCard from './post-card.jsx';
 import ProfileEditor from './profile-editor.jsx';
+import { StoryAvatar } from './stories.jsx';
 
 function profilePath(username) {
   return '/people/' + encodeURIComponent(username);
@@ -34,7 +35,11 @@ export function ProfileHeader({ profile, onEdit, onChanged, pageHeading = false 
     <section className="closet-profile-hero social-surface">
       <div className="closet-profile-overview">
         <div className="closet-profile-avatar">
-          <ProfileAvatar profile={profile} large />
+          {profile.canViewPosts ? (
+            <StoryAvatar profile={profile} large />
+          ) : (
+            <ProfileAvatar profile={profile} large />
+          )}
         </div>
         <div className="closet-profile-identity">
           <div className="closet-profile-name">
@@ -184,7 +189,11 @@ function ProfilePostPreview({ post }) {
             {post.visibility === 'private' ? 'Только мне' : 'Друзьям'}
           </span>
         )}
-        {(post.snapshot?.items?.length || 0) > 1 && (
+        {post.poll ? (
+          <span className="closet-profile-tile-count is-poll" aria-hidden="true">
+            А/Б
+          </span>
+        ) : (post.snapshot?.items?.length || 0) > 1 && (
           <span className="closet-profile-tile-count" aria-hidden="true">
             <Icon name="copy" size={14} />
             {post.snapshot.items.length}
@@ -215,7 +224,10 @@ function ProfilePosts({ username, self }) {
     enabled: social.ready && social.configured !== false,
   });
   const [view, setView] = useState('grid');
-  const publications = posts.data?.posts || [];
+  const [kind, setKind] = useState('all');
+  const loaded = posts.data?.posts || [];
+  const polls = loaded.filter((post) => post.poll);
+  const publications = kind === 'polls' ? polls : loaded;
 
   function updated(post) {
     posts.setData((current) => ({
@@ -257,6 +269,16 @@ function ProfilePosts({ username, self }) {
           </AppButton>
         </div>
       </div>
+      {polls.length > 0 && (
+        <div className="closet-profile-kinds" role="group" aria-label="Какие публикации показать">
+          <AppButton className="btn btn-ghost" aria-pressed={kind === 'all'} onClick={() => setKind('all')}>
+            <Icon name="outfits" size={18} /> Все образы
+          </AppButton>
+          <AppButton className="btn btn-ghost" aria-pressed={kind === 'polls'} onClick={() => setKind('polls')}>
+            <span className="closet-profile-poll-mark" aria-hidden="true">А/Б</span> Опросы · {polls.length}
+          </AppButton>
+        </div>
+      )}
       <SocialNotice error onRetry={posts.reload}>{posts.error}</SocialNotice>
       {posts.loading && <p className="social-loading" role="status">Загружаем образы…</p>}
       {!posts.loading && posts.data?.posts?.length === 0 && (

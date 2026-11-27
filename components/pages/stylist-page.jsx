@@ -629,6 +629,7 @@ export default function StylistPage() {
                         {missing.length > 0 && (
                           <p className="missing-outfit-badge">Требует покупки</p>
                         )}
+                        {outfit.rating && <OutfitChecks outfit={outfit} />}
                         <p>{outfit.description}</p>
                         <div className="tag-row">
                           {items.map((item) => (
@@ -637,6 +638,14 @@ export default function StylistPage() {
                             </span>
                           ))}
                         </div>
+                        {outfit.tip && (
+                          <p className="recommendation-tip">
+                            <Icon name="sparkle" />
+                            <span>
+                              <strong>Совет стилиста:</strong> {outfit.tip}
+                            </span>
+                          </p>
+                        )}
                         {outfit.warnings.length > 0 && (
                           <p className="recommendation-caution">
                             Проверьте рекомендации перед выходом
@@ -724,5 +733,24 @@ export default function StylistPage() {
       {editing && <OutfitForm outfit={editing} onClose={() => setEditing(null)} />}
       {shopping && <ShoppingForm entry={shopping} onClose={() => setShopping(null)} />}
     </>
+  );
+}
+
+const CHECK_LABELS = { colors: 'цвета', occasion: 'повод', season: 'сезон', weather: 'погода' };
+
+function OutfitChecks({ outfit }) {
+  return (
+    <div className="outfit-checks" aria-label="Оценка образа по правилам стилиста">
+      <span className="outfit-rating" title="Оценка по правилам сочетания цветов, повода и погоды">
+        ★ {outfit.rating}/10
+      </span>
+      {Object.entries(outfit.checks || {}).map(([key, value]) =>
+        value === null ? null : (
+          <span key={key} className={`outfit-check${value ? ' is-ok' : ' is-warn'}`}>
+            {value ? '✓' : '!'} {CHECK_LABELS[key]}
+          </span>
+        ),
+      )}
+    </div>
   );
 }

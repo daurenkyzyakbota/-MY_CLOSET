@@ -17,6 +17,7 @@ const labels = {
   follow: { icon: 'users', label: 'Новый подписчик' },
   follow_request: { icon: 'user', label: 'Запрос на подписку' },
   reply: { icon: 'message', label: 'Ответ на комментарий' },
+  mention: { icon: 'user', label: 'Вас упомянули' },
 };
 
 function notificationLink(notification) {

@@ -28,6 +28,38 @@ export function SocialNotice({ children, error = false, onRetry }) {
   );
 }
 
+// #теги ведут в ленту с этим тегом, @ники — в профиль, как в Instagram.
+const RICH_PATTERN = /(^|[^\p{L}\p{N}_&#@])([#@])([\p{L}\p{N}_]{2,40})/gu;
+export function RichText({ text }) {
+  const value = String(text || '');
+  const parts = [];
+  let last = 0;
+  for (const match of value.matchAll(RICH_PATTERN)) {
+    const [, before, sign, word] = match;
+    const start = match.index + before.length;
+    const mention = sign === '@';
+    if (mention && !/^[a-z0-9_]{3,30}$/i.test(word)) continue;
+    if (start > last) parts.push(value.slice(last, start));
+    parts.push(
+      <Link
+        key={start}
+        className={mention ? 'social-rich-mention' : 'social-rich-tag'}
+        href={
+          mention
+            ? `/people/${encodeURIComponent(word.toLowerCase())}`
+            : `/community?tab=feed&tag=${encodeURIComponent(word.toLocaleLowerCase('ru'))}`
+        }
+      >
+        {sign}
+        {word}
+      </Link>,
+    );
+    last = start + 1 + word.length;
+  }
+  if (last < value.length) parts.push(value.slice(last));
+  return <>{parts}</>;
+}
+
 export function ProfileAvatar({ profile, large = false }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [profile?.avatar]);

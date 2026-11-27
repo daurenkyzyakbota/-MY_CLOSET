@@ -17,14 +17,22 @@ const colorsLabel = (colors) =>
     .filter(Boolean)
     .join(', ') || 'Цвет не указан';
 
+// A poll post holds two outfits: start from the one the viewer voted for (or «А»).
+function initialSelection(post) {
+  const items = post.snapshot?.items || [];
+  const option = post.poll?.options?.[post.poll.myVote ?? 0];
+  if (!option) return items.map((_, index) => index);
+  const wanted = new Set(option.itemIds);
+  return items.flatMap((item, index) => (wanted.has(item.id) ? [index] : []));
+}
+
 export default function InspirationDialog({ post, onClose }) {
   const closet = useCloset();
   const social = useSocial();
   const [owner] = useState(closet.ownerId);
-  const [selection, setSelection] = useState(() =>
-    (post.snapshot?.items || []).map((_, index) => index),
-  );
+  const [selection, setSelection] = useState(() => initialSelection(post));
   const [draft, setDraft] = useState(null);
+  const [shopping, setShopping] = useState({ busy: false, added: 0, skipped: 0, error: '' });
   const expectedOwner = social.user?.id || '';
   const safeScope = closet.ready && closet.ownerId === owner && owner === expectedOwner;
   useEffect(() => {
@@ -44,6 +52,7 @@ export default function InspirationDialog({ post, onClose }) {
   if (!safeScope || !result) return null;
   if (draft) return <OutfitForm outfit={draft} onClose={onClose} />;
   function toggle(index) {
+    setShopping({ busy: false, added: 0, skipped: 0, error: '' });
     setSelection((current) =>
       current.includes(index)
         ? current.filter((value) => value !== index)
@@ -51,10 +60,45 @@ export default function InspirationDialog({ post, onClose }) {
     );
   }
   const rows = new Map((result.matches || []).map((row) => [row.source.index, row]));
+  const missing = (result.matches || []).filter(
+    (row) => !row.item && selection.includes(row.source.index),
+  );
+  // Missing pieces go to the shopping list; ones already planned there are skipped.
+  async function addMissingToShopping() {
+    if (shopping.busy || !missing.length) return;
+    setShopping({ busy: true, added: 0, skipped: 0, error: '' });
+    let added = 0;
+    let skipped = 0;
+    try {
+      for (const row of missing) {
+        try {
+          await closet.saveShopping({
+            name: row.source.name,
+            category: row.source.category,
+            colors: row.source.colors,
+            notes: `Для образа «${post.title}» из сообщества`.slice(0, 500),
+          });
+          added += 1;
+        } catch (cause) {
+          if (!/уже есть в планах/.test(cause.message || '')) throw cause;
+          skipped += 1;
+        }
+      }
+      setShopping({ busy: false, added, skipped, error: '' });
+    } catch (cause) {
+      setShopping({
+        busy: false,
+        added,
+        skipped,
+        error: cause.message || 'Не удалось добавить вещи в покупки.',
+      });
+    }
+  }
+  const shoppingDone = !shopping.busy && shopping.added + shopping.skipped === missing.length;
   return (
     <Modal
-      title="Собрать из моих вещей"
-      description="Сравним категории и цветовые группы с вашим гардеробом. В черновик попадут только ваши доступные вещи и описание недостающих деталей."
+      title="Повторить образ"
+      description="Сравним категории и цветовые группы с вашим гардеробом. В черновик попадут только ваши вещи, а недостающие можно добавить в покупки."
       onClose={onClose}
     >
       <div className="inspiration-dialog">
@@ -65,7 +109,49 @@ export default function InspirationDialog({ post, onClose }) {
           <SocialNotice error>{result.error}</SocialNotice>
         ) : (
           <>
-            <div className="inspiration-summary" aria-live="polite">
+            <div className="inspiration-headline" aria-live="polite">
+              <strong>
+                {result.selectedCount > 0 && result.matchedCount === result.selectedCount
+                  ? 'Всё есть в вашем гардеробе ✓'
+                  : `У вас есть ${result.matchedCount} из ${result.selectedCount} ${socialCountWord(
+                      result.selectedCount,
+                      'вещи',
+                      'вещей',
+                      'вещей',
+                    )}`}
+              </strong>
+              {missing.length > 0 && (
+                <span>
+                  Не хватает:{' '}
+                  {missing.map((row) => row.source.name.toLocaleLowerCase('ru')).join(', ')}
+                </span>
+              )}
+              {missing.length > 0 &&
+                (shoppingDone && shopping.added + shopping.skipped > 0 ? (
+                  <Link
+                    href="/shopping-list"
+                    className="inspiration-shopping-done"
+                    onClick={onClose}
+                  >
+                    <Icon name="check" size={16} />
+                    {shopping.added
+                      ? `Добавлено в покупки: ${shopping.added}`
+                      : 'Уже есть в покупках'}{' '}
+                    · открыть список
+                  </Link>
+                ) : (
+                  <AppButton
+                    className="btn btn-secondary"
+                    disabled={shopping.busy}
+                    onClick={addMissingToShopping}
+                  >
+                    <Icon name="shopping" />
+                    {shopping.busy ? 'Добавляем…' : 'Добавить недостающее в покупки'}
+                  </AppButton>
+                ))}
+              <SocialNotice error>{shopping.error}</SocialNotice>
+            </div>
+            <div className="inspiration-summary">
               <span>
                 <strong>{result.matchedCount}</strong> подобрано из вашего гардероба
               </span>

@@ -63,7 +63,7 @@ export function PostsList({
   onReset,
 }) {
   const social = useSocial();
-  const privateSection = ['friends', 'saved'].includes(scope);
+  const privateSection = ['following', 'friends', 'saved'].includes(scope);
   const enabled =
     social.ready && social.configured !== false && (!privateSection || !!social.profile);
   const posts = useSocialCollection(
@@ -82,6 +82,10 @@ export function PostsList({
     public: [
       'Первые образы ещё впереди',
       'Опубликуйте любимое сочетание из раздела «Мои образы». Ваш личный гардероб остаётся приватным.',
+    ],
+    following: [
+      'Подпишитесь на людей, чей стиль вам нравится',
+      'Откройте раздел «Люди» или профиль автора понравившегося образа и нажмите «Подписаться».',
     ],
     friends: [
       'В ленте друзей пока тихо',
@@ -119,13 +123,15 @@ export function PostsList({
     <div className="social-feed-content">
       <div className="social-section-heading">
         <p className="footnote">
-          {scope === 'friends'
-            ? 'Образы людей, с которыми вы дружите'
-            : scope === 'saved'
-              ? 'Ваша личная коллекция публикаций'
-              : scope === 'profile'
-                ? 'Образы этого профиля'
-                : 'Открытые образы участников сообщества'}
+          {scope === 'following'
+            ? 'Ваши образы и образы людей, на которых вы подписаны'
+            : scope === 'friends'
+              ? 'Образы людей, с которыми вы дружите'
+              : scope === 'saved'
+                ? 'Ваша личная коллекция публикаций'
+                : scope === 'profile'
+                  ? 'Образы этого профиля'
+                  : 'Открытые образы участников сообщества'}
         </p>
         <AppButton
           className="btn btn-ghost"
@@ -164,7 +170,7 @@ export function PostsList({
               Мои образы
             </Link>
           )}
-          {!narrowed && scope === 'friends' && (
+          {!narrowed && ['following', 'friends'].includes(scope) && (
             <Link className="btn btn-primary" href="/community?tab=people">
               Найти людей
             </Link>
@@ -280,6 +286,13 @@ function FeedExplorer({ scope, onScopeChange }) {
                 onClick={() => onScopeChange('public')}
               >
                 Все образы
+              </AppButton>
+              <AppButton
+                className={`btn btn-ghost${scope === 'following' ? ' is-selected' : ''}`}
+                aria-pressed={scope === 'following'}
+                onClick={() => onScopeChange('following')}
+              >
+                Подписки
               </AppButton>
               <AppButton
                 className={`btn btn-ghost${scope === 'friends' ? ' is-selected' : ''}`}
@@ -758,7 +771,9 @@ function CommunityContent() {
   const params = useSearchParams();
   const router = useRouter();
   const social = useSocial();
-  const scope = params.get('scope') === 'friends' ? 'friends' : 'public';
+  const scope = ['following', 'friends'].includes(params.get('scope'))
+    ? params.get('scope')
+    : 'public';
   const tab = tabs.some(([key]) => key === params.get('tab')) ? params.get('tab') : 'feed';
   const postId = params.get('post');
   const cloudUnavailable = social.ready && social.configured === false;
@@ -766,7 +781,7 @@ function CommunityContent() {
   function setScope(value) {
     if (value === scope) return;
     const next = new URLSearchParams(params.toString());
-    if (value === 'friends') next.set('scope', value);
+    if (value !== 'public') next.set('scope', value);
     else next.delete('scope');
     const query = next.toString();
     router.replace(query ? `/community?${query}` : '/community', { scroll: false });

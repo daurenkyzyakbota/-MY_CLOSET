@@ -291,3 +291,328 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* «А или Б» polls. */
+.post-poll {
+  margin: 14px 0 4px;
+}
+.post-poll-question {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.post-poll-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.post-poll-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 8px 12px;
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  background: var(--cream);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+.post-poll-option:not(:disabled):hover {
+  border-color: var(--rose-deep);
+  transform: translateY(-1px);
+}
+.post-poll-option:disabled {
+  cursor: default;
+}
+.post-poll-option.is-chosen {
+  border-color: var(--rose-deep);
+  background: var(--rose-soft);
+}
+.post-poll-collage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 3px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--paper);
+}
+.post-poll-collage.is-1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.post-poll-collage.is-2 {
+  grid-template-rows: minmax(0, 1fr);
+}
+.post-poll-collage.is-3 .post-poll-art:first-child {
+  grid-row: span 2;
+}
+.post-poll-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 8%;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--rose-soft) 45%, var(--paper));
+}
+.post-poll-art > :is(img, svg) {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.post-poll-letter,
+.publish-poll-letter {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 14px;
+  font-weight: 700;
+}
+.post-poll-option.is-chosen .post-poll-letter {
+  background: var(--rose-deep);
+  color: #fff;
+}
+.post-poll-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 4px;
+}
+.post-poll-label strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.post-poll-label small {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.post-poll-vote {
+  margin-inline: 4px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.post-poll-option:disabled .post-poll-vote {
+  background: var(--line);
+  color: var(--muted);
+}
+.post-poll-result {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-inline: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.post-poll-bar {
+  display: block;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--line);
+}
+.post-poll-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--muted);
+  transition: width 0.4s ease;
+}
+.post-poll-option.is-leader .post-poll-bar > span,
+.post-poll-option.is-chosen .post-poll-bar > span {
+  background: var(--rose-deep);
+}
+.post-poll-footnote {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.publish-poll-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.publish-poll-preview > div {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.publish-poll-preview .publish-poll-letter {
+  top: 6px;
+  left: 6px;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+}
+.publish-poll-preview .social-publish-preview {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+}
+.publish-poll-preview .social-publish-preview :is(img, svg) {
+  height: 64px;
+}
+.publish-poll-preview strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Comment threads: replies are indented, each comment has a small heart. */
+.social-comment-thread {
+  display: grid;
+  gap: 10px;
+}
+.social-comment-replies {
+  display: grid;
+  gap: 10px;
+  margin-inline-start: 26px;
+  padding-inline-start: 14px;
+  border-inline-start: 2px solid var(--line);
+}
+.social-comment-replies .social-comment {
+  padding: 12px 14px;
+  background: var(--paper);
+}
+.social-comment-footer .social-comment-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.social-comment-footer .social-comment-like.is-liked {
+  color: var(--rose-deep);
+}
+.social-comment-replying {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 12px;
+  background: var(--rose-soft);
+  font-size: 13px;
+}
+.social-comment-replying button {
+  min-width: 0;
+  margin-inline-start: auto;
+  padding: 4px;
+}
+
+/* Followers / following. */
+.closet-profile-stat-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.closet-profile-stat-link:not(:disabled):hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.closet-profile-stat-link:disabled {
+  cursor: default;
+}
+.closet-profile-follows-me {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--rose-soft);
+  color: var(--rose-dark);
+  font-size: 12px;
+  font-weight: 600;
+}
+.follow-list {
+  display: grid;
+  gap: 12px;
+}
+
+/* «Повторить образ». */
+.inspiration-headline {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--rose-soft);
+}
+.inspiration-headline > strong {
+  font-size: 17px;
+}
+.inspiration-headline > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.inspiration-shopping-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+[data-theme='dark'] .post-poll-option {
+  background: color-mix(in srgb, var(--paper) 92%, #fff);
+}
+[data-theme='dark'] .post-poll-option.is-chosen,
+[data-theme='dark'] .inspiration-headline,
+[data-theme='dark'] .closet-profile-follows-me,
+[data-theme='dark'] .social-comment-replying {
+  background: color-mix(in srgb, var(--rose-deep) 22%, var(--paper));
+}
+@media (max-width: 520px) {
+  .post-poll-options {
+    gap: 7px;
+  }
+  .post-poll-vote {
+    font-size: 12px;
+  }
+  .post-poll-letter {
+    top: 12px;
+    left: 12px;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  .social-comment-replies {
+    margin-inline-start: 10px;
+  }
+}

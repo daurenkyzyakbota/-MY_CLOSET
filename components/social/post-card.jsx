@@ -174,6 +174,83 @@ function PostGallery({ post, items, onDoubleLike }) {
   );
 }
 
+// «А или Б»: the author asks which of two outfits to wear. Results appear once you vote.
+function PostPoll({ post, items, canVote, busy, loginHref, onVote }) {
+  const { poll } = post;
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const showResults = poll.total !== null;
+  const total = poll.total || 0;
+  return (
+    <section className="post-poll" aria-label={`Опрос: ${post.title}`}>
+      <p className="post-poll-question">Помогите выбрать: какой вариант лучше?</p>
+      <div className="post-poll-options">
+        {poll.options.map((option, index) => {
+          const optionItems = option.itemIds.map((itemId) => byId.get(itemId)).filter(Boolean);
+          const percent = showResults && total ? Math.round((option.votes / total) * 100) : 0;
+          const chosen = poll.myVote === index;
+          const leader = showResults && total > 0 && option.votes * 2 > total;
+          const letter = index ? 'Б' : 'А';
+          return (
+            <button
+              type="button"
+              key={index}
+              className={`post-poll-option${chosen ? ' is-chosen' : ''}${leader ? ' is-leader' : ''}`}
+              disabled={!canVote || busy}
+              aria-pressed={chosen}
+              aria-label={`Вариант ${letter} «${option.label}»: ${optionItems.map((item) => item.name).join(', ')}${
+                showResults ? `. ${percent}%` : ''
+              }`}
+              onClick={() => onVote(index)}
+            >
+              <span className={`post-poll-collage is-${Math.min(optionItems.length, 4)}`}>
+                {optionItems.slice(0, 4).map((item) => (
+                  <span className="post-poll-art" key={item.id}>
+                    <ItemPicture item={item} alt="" />
+                  </span>
+                ))}
+              </span>
+              <span className="post-poll-letter" aria-hidden="true">
+                {letter}
+              </span>
+              <span className="post-poll-label">
+                <strong>{option.label}</strong>
+                <small>
+                  {optionItems.length} {socialCountWord(optionItems.length, 'вещь', 'вещи', 'вещей')}
+                </small>
+              </span>
+              {showResults ? (
+                <span className="post-poll-result">
+                  <span className="post-poll-bar">
+                    <span style={{ width: `${percent}%` }} />
+                  </span>
+                  <span>
+                    {percent}%{chosen ? ' · ваш выбор' : ''}
+                  </span>
+                </span>
+              ) : (
+                <span className="post-poll-vote">{canVote ? `Выбрать ${letter}` : `Вариант ${letter}`}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <p className="post-poll-footnote">
+        {showResults ? (
+          `${total} ${socialCountWord(total, 'голос', 'голоса', 'голосов')}${
+            canVote ? ' · можно передумать' : ''
+          }`
+        ) : canVote ? (
+          'Результаты появятся после вашего голоса'
+        ) : (
+          <>
+            <Link href={loginHref}>Войдите</Link>, чтобы проголосовать
+          </>
+        )}
+      </p>
+    </section>
+  );
+}
+
 function PostEditor({ post, onClose, onSaved }) {
   const { request } = useSocial();
   const [draft, setDraft] = useState({
@@ -284,18 +361,65 @@ function Comments({ post, onCountChange }) {
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  const textRef = useRef(null);
   const canWrite = !!social.user && !!social.profile;
+  // Comments arrive as top-level threads with `replies`; update both levels at once.
+  function updateAll(change) {
+    comments.setData((current) => ({
+      ...current,
+      comments: (current?.comments || [])
+        .map((root) => change(root))
+        .filter(Boolean)
+        .map((root) => ({ ...root, replies: (root.replies || []).map(change).filter(Boolean) })),
+    }));
+  }
+  function startReply(comment) {
+    setReplyTo(comment);
+    setText((value) => (value.startsWith('@') ? value : `@${comment.author.username} ${value}`));
+    textRef.current?.focus();
+  }
+  async function like(comment) {
+    if (!canWrite) return;
+    const liked = !comment.liked;
+    updateAll((value) =>
+      value.id === comment.id
+        ? { ...value, liked, likesCount: Math.max(0, value.likesCount + (liked ? 1 : -1)) }
+        : value,
+    );
+    try {
+      const result = await social.request('comments.like', { commentId: comment.id, liked });
+      updateAll((value) =>
+        value.id === comment.id ? { ...value, ...result.comment, replies: value.replies } : value,
+      );
+    } catch (cause) {
+      updateAll((value) => (value.id === comment.id ? comment : value));
+      if (cause.name !== 'AbortError') setError(cause.message);
+    }
+  }
   async function save(event) {
     event.preventDefault();
     if (busy || !text.trim()) return;
     setBusy(true);
     setError('');
     try {
-      const result = await social.request('comments.save', { postId: post.id, text: text.trim() });
+      const result = await social.request('comments.save', {
+        postId: post.id,
+        text: text.trim(),
+        ...(replyTo ? { parentId: replyTo.id } : {}),
+      });
       setText('');
+      setReplyTo(null);
+      const created = { ...result.comment, replies: [] };
       comments.setData((current) => ({
         ...current,
-        comments: [result.comment, ...(current?.comments || [])],
+        comments: created.parentId
+          ? (current?.comments || []).map((root) =>
+              root.id === created.parentId
+                ? { ...root, replies: [...(root.replies || []), created] }
+                : root,
+            )
+          : [created, ...(current?.comments || [])],
       }));
       onCountChange(1);
     } catch (cause) {
@@ -315,12 +439,11 @@ function Comments({ post, onCountChange }) {
         commentId: editing.id,
         text: editing.text.trim(),
       });
-      comments.setData((current) => ({
-        ...current,
-        comments: (current?.comments || []).map((value) =>
-          value.id === result.comment.id ? result.comment : value,
-        ),
-      }));
+      updateAll((value) =>
+        value.id === result.comment.id
+          ? { ...value, ...result.comment, replies: value.replies }
+          : value,
+      );
       setEditing(null);
     } catch (cause) {
       if (cause.name !== 'AbortError') setError(cause.message);
@@ -330,11 +453,8 @@ function Comments({ post, onCountChange }) {
   }
   async function remove() {
     await social.request('comments.delete', { commentId: deleting.id });
-    comments.setData((current) => ({
-      ...current,
-      comments: (current?.comments || []).filter((value) => value.id !== deleting.id),
-    }));
-    onCountChange(-1);
+    updateAll((value) => (value.id === deleting.id ? null : value));
+    onCountChange(-1 - (deleting.replies?.length || 0));
   }
   return (
     <section className="social-comments" aria-label={`Комментарии к образу «${post.title}»`}>
@@ -352,45 +472,39 @@ function Comments({ post, onCountChange }) {
       )}
       <div className="social-comment-list">
         {(comments.data?.comments || []).map((comment) => (
-          <article className="social-comment" key={comment.id}>
-            <Link
-              href={`/people/${encodeURIComponent(comment.author.username)}`}
-              className="social-comment-author"
-            >
-              <ProfileAvatar profile={comment.author} />
-              <span>
-                <strong>{comment.author.name}</strong>
-                <span className="social-handle">@{comment.author.username}</span>
-              </span>
-            </Link>
-            <p>{comment.text}</p>
-            <div className="social-comment-footer">
-              <time dateTime={comment.createdAt}>{socialDate(comment.createdAt)}</time>
-              <div>
-                {comment.owned && (
-                  <AppButton
-                    className="btn btn-ghost"
-                    disabled={busy}
-                    onClick={() => {
-                      setEditing({ ...comment });
+          <div className="social-comment-thread" key={comment.id}>
+            <CommentItem
+              comment={comment}
+              busy={busy}
+              canWrite={canWrite}
+              onLike={like}
+              onReply={startReply}
+              onEdit={(value) => {
+                setEditing({ ...value });
+                setError('');
+              }}
+              onDelete={setDeleting}
+            />
+            {comment.replies?.length > 0 && (
+              <div className="social-comment-replies">
+                {comment.replies.map((reply) => (
+                  <CommentItem
+                    key={reply.id}
+                    comment={reply}
+                    busy={busy}
+                    canWrite={canWrite}
+                    onLike={like}
+                    onReply={() => startReply({ ...reply, id: comment.id })}
+                    onEdit={(value) => {
+                      setEditing({ ...value });
                       setError('');
                     }}
-                  >
-                    Изменить
-                  </AppButton>
-                )}
-                {comment.canDelete && (
-                  <AppButton
-                    className="btn btn-ghost"
-                    disabled={busy}
-                    onClick={() => setDeleting(comment)}
-                  >
-                    Удалить
-                  </AppButton>
-                )}
+                    onDelete={setDeleting}
+                  />
+                ))}
               </div>
-            </div>
-          </article>
+            )}
+          </div>
         ))}
       </div>
       {comments.data?.nextCursor && (
@@ -404,8 +518,24 @@ function Comments({ post, onCountChange }) {
       )}
       {canWrite ? (
         <form className="social-comment-form" onSubmit={save}>
-          <Field label="Ваш комментарий">
+          {replyTo && (
+            <p className="social-comment-replying">
+              Ответ для <strong>@{replyTo.author.username}</strong>
+              <AppButton
+                className="btn btn-ghost"
+                onClick={() => {
+                  setReplyTo(null);
+                  setText((value) => value.replace(/^@\S+\s/, ''));
+                }}
+                aria-label="Отменить ответ"
+              >
+                <Icon name="close" size={14} />
+              </AppButton>
+            </p>
+          )}
+          <Field label={replyTo ? 'Ваш ответ' : 'Ваш комментарий'}>
             <textarea
+              ref={textRef}
               name="comment"
               required
               maxLength={1000}
@@ -417,7 +547,7 @@ function Comments({ post, onCountChange }) {
             />
           </Field>
           <AppButton className="btn btn-primary" type="submit" disabled={busy || !text.trim()}>
-            {busy ? 'Отправляем…' : 'Отправить комментарий'}
+            {busy ? 'Отправляем…' : replyTo ? 'Ответить' : 'Отправить комментарий'}
           </AppButton>
         </form>
       ) : (
@@ -472,6 +602,54 @@ function Comments({ post, onCountChange }) {
         />
       )}
     </section>
+  );
+}
+
+function CommentItem({ comment, busy, canWrite, onLike, onReply, onEdit, onDelete }) {
+  return (
+    <article className="social-comment">
+      <Link
+        href={`/people/${encodeURIComponent(comment.author.username)}`}
+        className="social-comment-author"
+      >
+        <ProfileAvatar profile={comment.author} />
+        <span>
+          <strong>{comment.author.name}</strong>
+          <span className="social-handle">@{comment.author.username}</span>
+        </span>
+      </Link>
+      <p>{comment.text}</p>
+      <div className="social-comment-footer">
+        <time dateTime={comment.createdAt}>{socialDate(comment.createdAt)}</time>
+        <div>
+          <AppButton
+            className={`btn btn-ghost social-comment-like${comment.liked ? ' is-liked' : ''}`}
+            disabled={!canWrite}
+            aria-pressed={!!comment.liked}
+            aria-label={comment.liked ? 'Убрать отметку «нравится»' : 'Нравится'}
+            onClick={() => onLike(comment)}
+          >
+            <Icon name="heart" size={16} fill={comment.liked ? 'currentColor' : 'none'} />
+            {comment.likesCount > 0 && <span>{comment.likesCount}</span>}
+          </AppButton>
+          {canWrite && (
+            <AppButton className="btn btn-ghost" disabled={busy} onClick={() => onReply(comment)}>
+              Ответить
+            </AppButton>
+          )}
+          {comment.owned && (
+            <AppButton className="btn btn-ghost" disabled={busy} onClick={() => onEdit(comment)}>
+              Изменить
+            </AppButton>
+          )}
+          {comment.canDelete && (
+            <AppButton className="btn btn-ghost" disabled={busy} onClick={() => onDelete(comment)}>
+              Удалить
+            </AppButton>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -641,6 +819,17 @@ export default function PostCard({
     </div>
   );
 
+  const poll = post.poll && (
+    <PostPoll
+      post={post}
+      items={items}
+      canVote={active && !owned}
+      busy={busy}
+      loginHref={loginHref}
+      onVote={(option) => option !== post.poll.myVote && toggle('posts.vote', { option })}
+    />
+  );
+
   const likeLabel = `${post.liked ? 'Убрать лайк' : 'Поставить лайк'}: ${post.title}. Лайков: ${likes}`;
   const commentsSection = (
     <div id={commentsId} hidden={!comments}>
@@ -664,7 +853,8 @@ export default function PostCard({
       {header}
       {community ? (
         <>
-          {items.length > 0 && (
+          {poll}
+          {!post.poll && items.length > 0 && (
             <PostGallery
               post={post}
               items={items}
@@ -763,7 +953,7 @@ export default function PostCard({
           {commentsSection}
           <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
             <Icon name="outfits" />
-            Собрать из моих вещей
+            Повторить образ
           </AppButton>
         </>
       ) : (
@@ -774,7 +964,8 @@ export default function PostCard({
             </h2>
             <time dateTime={post.createdAt}>{socialDate(post.createdAt)}</time>
           </div>
-          {items.length > 0 && (
+          {poll}
+          {!post.poll && items.length > 0 && (
             <div className="social-published-items" aria-label="Состав опубликованного образа">
               {items.map((item) => (
                 <PublishedItem item={item} key={item.id} />
@@ -871,7 +1062,7 @@ export default function PostCard({
             )}
             <AppButton className="btn btn-ghost inspiration-start" onClick={() => setInspiration(true)}>
               <Icon name="outfits" />
-              Собрать из моих вещей
+              Повторить образ
             </AppButton>
           </div>
           <SocialNotice error>{error}</SocialNotice>

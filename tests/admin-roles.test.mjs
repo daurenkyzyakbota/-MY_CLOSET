@@ -181,6 +181,18 @@ test('user search escapes LIKE wildcards', async () => {
   assert.match(search.sql, /p\.banned_at IS NOT NULL/);
 });
 
+test('user list can show reported people and the newest sign-ups', async () => {
+  const db = fakeDatabase(roles());
+  const service = createSocialService({ pool: db.pool });
+  await service.execute('admin.users.list', { filter: 'reported' }, admin);
+  const reported = db.calls.find(({ sql }) => sql.includes('FROM public.mycloset_profiles p\n    WHERE'));
+  assert.match(reported.sql, /EXISTS \(SELECT 1 FROM public\.mycloset_reports/);
+  await service.execute('admin.users.list', { filter: 'new' }, admin);
+  const latest = db.calls.filter(({ sql }) => sql.includes('FROM public.mycloset_profiles p\n    WHERE')).at(-1);
+  assert.match(latest.sql, /ORDER BY p\.created_at DESC,p\.user_id/);
+  await assert.rejects(service.execute('admin.users.list', { filter: 'everyone' }, admin));
+});
+
 test('a blocked account cannot publish or write, but can still read and tidy up', async () => {
   const db = fakeDatabase({ ...roles(), [member.id]: { role: 'user', banned_at: new Date() } });
   const service = createSocialService({ pool: db.pool });

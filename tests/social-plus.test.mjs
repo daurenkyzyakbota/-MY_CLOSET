@@ -345,3 +345,148 @@ test('the following feed combines own posts, follows and friends', async () => {
     createSocialService({ pool: db.pool }).execute('posts.list', { scope: 'following' }, null),
   );
 });
+
+const chatId = 'c0ffee00-0000-4000-8000-000000000001';
+// A 1 × 1 transparent PNG.
+const PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+const messageRow = (changes = {}) => ({
+  id: 'm1',
+  conversation_id: chatId,
+  sender_id: otherId,
+  text: 'Привет',
+  post_id: null,
+  had_post: false,
+  client_id: null,
+  created_at: new Date('2026-11-27T10:00:00Z'),
+  cursor_at: '2026-11-27T10:00:00.000000Z',
+  reply_to_id: null,
+  has_photo: false,
+  ...changes,
+});
+const chat = (extra) => (sql, values) => {
+  if (sql.includes('SELECT c.* FROM public.mycloset_conversations'))
+    return { rows: [{ id: chatId, user_a: viewer.id, user_b: otherId }] };
+  return extra(sql, values) || profiles({ [otherId]: { allow_messages: 'everyone' } })(sql, values);
+};
+
+test('a message can be only a photo and can answer an earlier message', async () => {
+  let inserted;
+  const db = database(
+    chat((sql, values) => {
+      if (
+        sql.includes('SELECT id FROM public.mycloset_messages WHERE id=$1 AND conversation_id=$2')
+      )
+        return { rows: values[0] === 'm1' ? [{ id: 'm1' }] : [] };
+      if (sql.includes('INSERT INTO public.mycloset_messages')) {
+        inserted = values;
+        return {
+          rows: [
+            messageRow({
+              id: values[0],
+              sender_id: viewer.id,
+              text: values[3],
+              reply_to_id: values[8],
+              has_photo: values[7] !== '',
+            }),
+          ],
+        };
+      }
+      if (sql.includes('FROM public.mycloset_messages WHERE id=ANY'))
+        return {
+          rows: [
+            {
+              id: 'm1',
+              conversation_id: chatId,
+              sender_id: otherId,
+              text: 'Какое платье лучше?',
+              had_post: false,
+              has_photo: false,
+            },
+          ],
+        };
+    }),
+  );
+  const service = createSocialService({ pool: db.pool });
+  const { message } = await service.execute(
+    'messages.send',
+    { conversationId: chatId, text: '', photo: PNG, replyToId: 'm1' },
+    viewer,
+  );
+  assert.equal(inserted[7], PNG);
+  assert.equal(inserted[8], 'm1');
+  assert.match(message.photo, /^\/api\/social\/media\?type=message&id=/);
+  assert.deepEqual(message.replyTo, {
+    id: 'm1',
+    senderId: otherId,
+    text: 'Какое платье лучше?',
+    photo: false,
+    post: false,
+  });
+  assert.ok(
+    !db.calls.some(({ sql }) => /SELECT m\.\*|RETURNING \*/.test(sql)),
+    'photos are never read in lists',
+  );
+  await assert.rejects(
+    service.execute(
+      'messages.send',
+      { conversationId: chatId, text: 'да', replyToId: 'other' },
+      viewer,
+    ),
+    (error) => error.status === 404,
+  );
+  await assert.rejects(
+    service.execute('messages.send', { conversationId: chatId, text: '' }, viewer),
+    (error) => error instanceof SocialError,
+  );
+});
+
+test('reactions: one emoji per person, replaced or removed, only inside your own chats', async () => {
+  const db = database(
+    chat((sql, values) => {
+      if (sql.includes('WHERE m.id=$1 AND (c.user_a=$2 OR c.user_b=$2)'))
+        return { rows: values[0] === 'm1' ? [messageRow()] : [] };
+      if (sql.includes('FROM public.mycloset_message_reactions WHERE message_id=ANY'))
+        return { rows: [{ message_id: 'm1', emoji: '🔥', total: '2', mine: true }] };
+    }),
+  );
+  const service = createSocialService({ pool: db.pool });
+  const { message } = await service.execute(
+    'messages.react',
+    { messageId: 'm1', emoji: '🔥' },
+    viewer,
+  );
+  assert.deepEqual(message.reactions, [{ emoji: '🔥', count: 2, mine: true }]);
+  assert.ok(
+    db.calls.some(({ sql }) => sql.includes('ON CONFLICT(message_id,user_id) DO UPDATE SET emoji')),
+  );
+  await service.execute('messages.react', { messageId: 'm1', emoji: null }, viewer);
+  assert.ok(
+    db.calls.some(({ sql }) => sql.startsWith('DELETE FROM public.mycloset_message_reactions')),
+  );
+  await assert.rejects(
+    service.execute('messages.react', { messageId: 'm1', emoji: '💩' }, viewer),
+    (error) => error instanceof SocialError,
+  );
+  await assert.rejects(
+    service.execute('messages.react', { messageId: 'stranger', emoji: '❤️' }, viewer),
+    (error) => error.status === 404,
+  );
+});
+
+test('a chat photo is served only to the two people in the conversation', async () => {
+  const db = database((sql, values) => {
+    if (sql.includes('SELECT m.photo FROM public.mycloset_messages m'))
+      return { rows: values[0] === viewer.id ? [{ photo: PNG }] : [] };
+  });
+  const service = createSocialService({ pool: db.pool });
+  const own = await service.execute('media.get', { type: 'message', id: 'm1' }, viewer);
+  assert.equal(own.photo, PNG);
+  await assert.rejects(
+    service.execute('media.get', { type: 'message', id: 'm1' }, null),
+    (error) => error.status === 404,
+  );
+  const [call] = db.calls;
+  assert.match(call.sql, /c\.user_a=\$1 OR c\.user_b=\$1/);
+  assert.match(call.sql, /mycloset_blocks/);
+});

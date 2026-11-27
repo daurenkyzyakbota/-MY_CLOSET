@@ -26,6 +26,7 @@ try {
     '../db/005-notifications.sql',
     '../db/006-photos.sql',
     '../db/007-roles.sql',
+    '../db/008-social-plus.sql',
   ])
     await database.query(readFileSync(new URL(migration, import.meta.url), 'utf8'));
   console.log('Схема облачного гардероба готова. Секреты подключения не выводятся.');

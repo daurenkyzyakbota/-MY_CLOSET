@@ -259,6 +259,29 @@ test('stylist requires an owned complete base plus shoes, and never invents item
   assert.deepEqual(new Set(dress.outfits[0].itemIds), new Set(['dress', 'shoe']));
 });
 
+test('stylist explains each outfit with a name, rating, checks and one tip', () => {
+  const neutral = recommendOutfits([
+    item('shirt', 'top'),
+    item('pants', 'bottom', { colors: ['black'] }),
+    item('shoe', 'shoes', { colors: ['beige'] }),
+  ]).outfits[0];
+  assert.equal(neutral.title, 'Спокойная нейтральная база');
+  assert.match(neutral.description, /^Белая базовая рубашка/);
+  assert.ok(neutral.rating >= 3 && neutral.rating <= 10);
+  assert.equal(neutral.checks.colors, true);
+  assert.equal(neutral.checks.weather, null);
+  assert.equal(typeof neutral.tip, 'string');
+  const bold = recommendOutfits([
+    item('red', 'top', { colors: ['red'] }),
+    item('blue', 'bottom', { colors: ['blue'] }),
+    item('shoe', 'shoes', { colors: ['green'] }),
+  ]).outfits[0];
+  assert.equal(bold.title, 'Смелый контраст цветов');
+  assert.equal(bold.checks.colors, false);
+  assert.ok(bold.rating < neutral.rating);
+  assert.match(bold.tip, /один яркий цвет/);
+});
+
 test('strict season and laundry exclusions apply to all returned items', () => {
   const items = [
     ...wardrobe(),

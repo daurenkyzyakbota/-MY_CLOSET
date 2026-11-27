@@ -8,6 +8,7 @@ import { AppButton } from '@/components/ui/app-button.jsx';
 import { Icon, ItemArt, Modal } from '@/components/ui/ui.jsx';
 import {
   PersonActions,
+  PersonCard,
   ProfileAvatar,
   ShareDialog,
   SocialAccessNote,
@@ -25,6 +26,7 @@ function profilePath(username) {
 export function ProfileHeader({ profile, onEdit, onChanged, pageHeading = false }) {
   const social = useSocial();
   const [sharing, setSharing] = useState(false);
+  const [list, setList] = useState(null);
   const self = profile.relationship === 'self' || social.user?.id === profile.id;
   const NameHeading = pageHeading ? 'h1' : 'h2';
 
@@ -51,10 +53,35 @@ export function ProfileHeader({ profile, onEdit, onChanged, pageHeading = false 
               <dd>{profile.postCount || 0}</dd>
             </div>
             <div>
-              <dt>{socialCountWord(profile.friendCount, 'друг', 'друга', 'друзей')}</dt>
-              <dd>{profile.friendCount || 0}</dd>
+              <dt>
+                <button
+                  type="button"
+                  className="closet-profile-stat-link"
+                  disabled={!profile.canViewPosts}
+                  onClick={() => setList('followers')}
+                >
+                  {socialCountWord(profile.followerCount, 'подписчик', 'подписчика', 'подписчиков')}
+                </button>
+              </dt>
+              <dd>{profile.followerCount || 0}</dd>
+            </div>
+            <div>
+              <dt>
+                <button
+                  type="button"
+                  className="closet-profile-stat-link"
+                  disabled={!profile.canViewPosts}
+                  onClick={() => setList('following')}
+                >
+                  {socialCountWord(profile.followingCount, 'подписка', 'подписки', 'подписок')}
+                </button>
+              </dt>
+              <dd>{profile.followingCount || 0}</dd>
             </div>
           </dl>
+          {!self && profile.followsMe && (
+            <p className="closet-profile-follows-me">Подписан(а) на вас</p>
+          )}
         </div>
       </div>
       {(profile.bio || profile.city || profile.styles) && (
@@ -90,6 +117,13 @@ export function ProfileHeader({ profile, onEdit, onChanged, pageHeading = false 
           </Link>
         )}
       </div>
+      {list && (
+        <FollowListDialog
+          username={profile.username}
+          type={list}
+          onClose={() => setList(null)}
+        />
+      )}
       {sharing && (
         <ShareDialog
           path={profilePath(profile.username)}
@@ -98,6 +132,33 @@ export function ProfileHeader({ profile, onEdit, onChanged, pageHeading = false 
         />
       )}
     </section>
+  );
+}
+
+// Followers or following of one profile, like the lists behind the counters on Instagram.
+function FollowListDialog({ username, type, onClose }) {
+  const people = useSocialCollection('follows.list', { username, type }, 'people');
+  return (
+    <Modal title={type === 'followers' ? 'Подписчики' : 'Подписки'} onClose={onClose}>
+      <SocialNotice error onRetry={people.reload}>
+        {people.error}
+      </SocialNotice>
+      {people.loading && (
+        <p className="social-loading" role="status">
+          Загружаем…
+        </p>
+      )}
+      {people.data?.people?.length === 0 && !people.loading && (
+        <p className="footnote">
+          {type === 'followers' ? 'Пока ни одного подписчика.' : 'Пока ни на кого не подписан(а).'}
+        </p>
+      )}
+      <div className="follow-list">
+        {(people.data?.people || []).map((person) => (
+          <PersonCard key={person.id} person={person} onChanged={people.reload} />
+        ))}
+      </div>
+    </Modal>
   );
 }
 

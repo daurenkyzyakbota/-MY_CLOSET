@@ -14,6 +14,9 @@ const labels = {
   message: { icon: 'message', label: 'Новое сообщение' },
   like: { icon: 'heart', label: 'Ваш образ понравился' },
   comment: { icon: 'message', label: 'Новый комментарий' },
+  follow: { icon: 'users', label: 'Новый подписчик' },
+  follow_request: { icon: 'user', label: 'Запрос на подписку' },
+  reply: { icon: 'message', label: 'Ответ на комментарий' },
 };
 
 function notificationLink(notification) {
@@ -104,6 +107,20 @@ function NotificationsContent() {
     if (!mutating.current) await load(signal);
     await refreshRef.current({ signal, quiet: true });
   });
+
+  async function respondFollow(notification, accept) {
+    setBusy(notification.id);
+    setError('');
+    try {
+      await requestRef.current('follows.respond', { userId: notification.actor.id, accept });
+      setNotifications((previous) => previous.filter((entry) => entry.id !== notification.id));
+      setNotice(accept ? 'Запрос принят.' : 'Запрос отклонён.');
+    } catch (cause) {
+      if (cause.name !== 'AbortError') setError(cause.message);
+    } finally {
+      setBusy('');
+    }
+  }
 
   async function loadMore() {
     if (!cursor || loadingMore) return;
@@ -263,6 +280,24 @@ function NotificationsContent() {
                   {notificationDate(notification.createdAt)}
                 </time>
                 <div className="social-notification-item-actions">
+                  {notification.type === 'follow_request' && notification.actor?.id && (
+                    <>
+                      <AppButton
+                        className="btn btn-primary"
+                        disabled={!!busy}
+                        onClick={() => respondFollow(notification, true)}
+                      >
+                        Принять
+                      </AppButton>
+                      <AppButton
+                        className="btn btn-secondary"
+                        disabled={!!busy}
+                        onClick={() => respondFollow(notification, false)}
+                      >
+                        Отклонить
+                      </AppButton>
+                    </>
+                  )}
                   <Link
                     className="social-notification-open"
                     href={notificationLink(notification)}

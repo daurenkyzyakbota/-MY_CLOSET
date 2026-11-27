@@ -24,9 +24,25 @@ export default function PublishOutfit({ outfit, onClose }) {
   const pending = useRef(null);
   const attempt = useRef(null);
   useEffect(() => () => pending.current?.abort(), []);
-  const items = outfit.itemIds
-    .map((id) => state.items.find((item) => item.id === id))
-    .filter(Boolean);
+  const [pollWith, setPollWith] = useState('');
+  const itemsOf = (value) =>
+    value.itemIds.map((id) => state.items.find((item) => item.id === id)).filter(Boolean);
+  const complete = (value) => {
+    const found = itemsOf(value);
+    return found.length > 0 && found.length === value.itemIds.length && !value.missingItems?.length;
+  };
+  const items = itemsOf(outfit);
+  // «А или Б»: the second outfit must be complete, different and fit the 15-item poll limit.
+  const pollChoices = state.outfits.filter(
+    (value) =>
+      value.id !== outfit.id &&
+      complete(value) &&
+      value.itemIds.length <= 15 &&
+      value.itemIds.join() !== outfit.itemIds.join(),
+  );
+  const second = pollChoices.find((value) => value.id === pollWith) || null;
+  const secondItems = second ? itemsOf(second) : [];
+  const allItems = [...items, ...secondItems.filter((item) => !outfit.itemIds.includes(item.id))];
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
@@ -36,10 +52,11 @@ export default function PublishOutfit({ outfit, onClose }) {
     setBusy(true);
     setError('');
     try {
-      if (!items.length || items.length !== outfit.itemIds.length || outfit.missingItems?.length)
-        throw new Error('Сначала заполните образ своими вещами.');
+      if (!complete(outfit)) throw new Error('Сначала заполните образ своими вещами.');
+      if (second && items.length > 15)
+        throw new Error('Для опроса в каждом варианте может быть не больше 15 вещей.');
       const snapshotItems = [];
-      for (const item of items) {
+      for (const item of allItems) {
         const photo = await socialThumbnail(item.photo);
         if (controller.signal.aborted) return;
         snapshotItems.push({
@@ -69,6 +86,19 @@ export default function PublishOutfit({ outfit, onClose }) {
           style: outfit.style || '',
           season: outfit.season || '',
           items: snapshotItems,
+          ...(second
+            ? {
+                poll: {
+                  options: [
+                    { label: outfit.name.slice(0, 40), itemIds: items.map((item) => item.id) },
+                    {
+                      label: second.name.slice(0, 40),
+                      itemIds: secondItems.map((item) => item.id),
+                    },
+                  ],
+                },
+              }
+            : {}),
         },
       };
       const signature = JSON.stringify([ownerId, payload]);
@@ -91,7 +121,13 @@ export default function PublishOutfit({ outfit, onClose }) {
   }
   return (
     <Modal
-      title={post ? 'Образ сохранён в профиле' : 'Поделиться образом'}
+      title={
+        post
+          ? 'Образ сохранён в профиле'
+          : second
+            ? 'Спросить друзей: А или Б'
+            : 'Поделиться образом'
+      }
       description="Вы выбираете, кому виден образ. Остальные вещи и данные гардероба останутся личными."
       onClose={busy ? () => {} : onClose}
     >
@@ -114,18 +150,67 @@ export default function PublishOutfit({ outfit, onClose }) {
         ) : (
           <form id="publish-outfit-form" onSubmit={submit}>
             <fieldset className="form-fieldset" disabled={busy}>
-              <div className="social-publish-preview">
-                {items.slice(0, 6).map((item) => (
-                  <div key={item.id}>
-                    {item.photo ? (
-                      <img src={item.photo} alt={item.name} />
-                    ) : (
-                      <ItemArt item={item} />
-                    )}
-                    <span>{item.name}</span>
-                  </div>
-                ))}
-              </div>
+              {second ? (
+                <div className="publish-poll-preview">
+                  {[
+                    ['А', outfit, items],
+                    ['Б', second, secondItems],
+                  ].map(([letter, value, list]) => (
+                    <div key={letter}>
+                      <span className="publish-poll-letter">{letter}</span>
+                      <div className="social-publish-preview">
+                        {list.slice(0, 4).map((item) => (
+                          <div key={item.id}>
+                            {item.photo ? (
+                              <img src={item.photo} alt={item.name} />
+                            ) : (
+                              <ItemArt item={item} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <strong>{value.name}</strong>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="social-publish-preview">
+                  {items.slice(0, 6).map((item) => (
+                    <div key={item.id}>
+                      {item.photo ? (
+                        <img src={item.photo} alt={item.name} />
+                      ) : (
+                        <ItemArt item={item} />
+                      )}
+                      <span>{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {pollChoices.length > 0 ? (
+                <Field
+                  label="Опрос «А или Б»"
+                  hint="Друзья выберут, какой из двух образов вам надеть. Результаты видят те, кто проголосовал."
+                >
+                  <select
+                    name="pollWith"
+                    value={pollWith}
+                    onChange={(event) => setPollWith(event.target.value)}
+                  >
+                    <option value="">Без опроса — только этот образ</option>
+                    {pollChoices.map((value) => (
+                      <option value={value.id} key={value.id}>
+                        Сравнить с «{value.name}»
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : (
+                <p className="footnote">
+                  Хотите спросить друзей «А или Б»? Сохраните ещё один полный образ, и его можно
+                  будет добавить сюда для сравнения.
+                </p>
+              )}
               <Field label="Название">
                 <input
                   name="title"

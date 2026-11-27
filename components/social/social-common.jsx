@@ -339,6 +339,22 @@ export function PersonActions({ person, onChanged, includeMenu = false }) {
           </AppButton>
         ) : (
           <>
+            {relation !== 'blocked' && (
+              <AppButton
+                className={`btn ${person.following === 'none' ? 'btn-primary' : 'btn-secondary'}`}
+                disabled={busy}
+                aria-pressed={person.following !== 'none'}
+                onClick={() => run('follows.set', { following: person.following === 'none' })}
+              >
+                {person.following === 'accepted'
+                  ? 'Вы подписаны ✓'
+                  : person.following === 'pending'
+                    ? 'Запрос отправлен'
+                    : person.followsMe
+                      ? 'Подписаться в ответ'
+                      : 'Подписаться'}
+              </AppButton>
+            )}
             {relation === 'incoming' ? (
               <>
                 <AppButton
@@ -375,7 +391,7 @@ export function PersonActions({ person, onChanged, includeMenu = false }) {
             ) : (
               relation !== 'blocked' && (
                 <AppButton
-                  className="btn btn-primary"
+                  className="btn btn-secondary"
                   disabled={busy}
                   onClick={() => run('friends.request')}
                 >

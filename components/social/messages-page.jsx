@@ -9,7 +9,19 @@ import { useNarrowSocialScreen, useSocialPoll } from '@/components/social/use-so
 import { AppButton } from '@/components/ui/app-button.jsx';
 import { EmptyState, Field, Icon, Loading, PageHeader } from '@/components/ui/ui.jsx';
 import MessageSearch from '@/components/social/message-search.jsx';
-import { loadMessageBatch, mergeMessages, selectMessageRefresh } from '@/lib/social/message-history.js';
+import {
+  loadMessageBatch,
+  mergeMessages,
+  messageRefreshIds,
+  selectMessageRefresh,
+} from '@/lib/social/message-history.js';
+import { chatPhoto } from '@/lib/media/social-image.js';
+
+const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🔥'];
+const quoteText = (reply) =>
+  reply.unavailable
+    ? 'Сообщение удалено'
+    : reply.text || (reply.photo ? '📷 Фото' : reply.post ? 'Образ' : 'Сообщение');
 
 const displayDate = (value, full = false) => {
   const date = new Date(value);
@@ -73,6 +85,12 @@ function MessagesContent() {
   const [attaching, setAttaching] = useState(false);
   const [sending, setSending] = useState('');
   const [sendError, setSendError] = useState('');
+  const [photo, setPhoto] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [replyTo, setReplyTo] = useState(null);
+  const [picker, setPicker] = useState('');
+  const photoInput = useRef(null);
+  const draftRef = useRef(null);
   const activeRef = useRef(activeId);
   activeRef.current = activeId;
   const drafts = useRef(new Map());
@@ -133,11 +151,13 @@ function MessagesContent() {
         !initial && messageCursor.current?.conversationId === conversationId
           ? messageCursor.current.cursor
           : undefined;
-      const refresh = after ? selectMessageRefresh(messagesRef.current, messageRefreshOffset.current) : null;
+      const refresh = after
+        ? selectMessageRefresh(messagesRef.current, messageRefreshOffset.current, 20)
+        : null;
       const result = await loadMessageBatch(requestRef.current, conversationId, {
         after,
         signal,
-        refreshIds: refresh?.ids || [],
+        refreshIds: after ? messageRefreshIds(messagesRef.current, refresh) : [],
       });
       if (signal?.aborted || activeRef.current !== conversationId || epoch !== messageEpoch.current)
         return;
@@ -236,6 +256,9 @@ function MessagesContent() {
     setAttachmentInput('');
     setAttachmentOpen(false);
     setAttaching(false);
+    setPhoto('');
+    setReplyTo(null);
+    setPicker('');
     scrollToBottom.current = true;
     if (activeId) void loadMessages(activeId, controller.signal, true);
     return () => controller.abort();
@@ -376,11 +399,25 @@ function MessagesContent() {
 
   async function sendMessage(event) {
     event.preventDefault();
-    if (sendFlight.current || attaching || !canSend || (!draft.trim() && !attachment)) return;
+    if (
+      sendFlight.current ||
+      attaching ||
+      photoBusy ||
+      !canSend ||
+      (!draft.trim() && !attachment && !photo)
+    )
+      return;
     const conversationId = activeId;
     const text = draft.trim();
     const postId = attachment?.id;
-    const fingerprint = JSON.stringify({ conversationId, text, postId: postId || '' });
+    const replyToId = replyTo?.id;
+    const fingerprint = JSON.stringify({
+      conversationId,
+      text,
+      postId: postId || '',
+      photo: photo.length,
+      replyToId: replyToId || '',
+    });
     const previousAttempt = sendAttempts.current.get(conversationId);
     const attempt =
       previousAttempt?.fingerprint === fingerprint
@@ -396,6 +433,8 @@ function MessagesContent() {
         text,
         clientId: attempt.clientId,
         ...(postId ? { postId } : {}),
+        ...(photo ? { photo } : {}),
+        ...(replyToId ? { replyToId } : {}),
       });
       drafts.current.delete(conversationId);
       sendAttempts.current.delete(conversationId);
@@ -405,6 +444,8 @@ function MessagesContent() {
         setDraft('');
         setAttachment(null);
         setAttachmentError('');
+        setPhoto('');
+        setReplyTo(null);
       }
       await loadConversations();
       await refreshRef.current({ quiet: true });
@@ -419,6 +460,59 @@ function MessagesContent() {
       setSending('');
     }
   }
+
+  async function choosePhoto(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const conversationId = activeId;
+    setPhotoBusy(true);
+    setSendError('');
+    try {
+      const value = await chatPhoto(file);
+      if (activeRef.current === conversationId) setPhoto(value);
+    } catch (cause) {
+      if (activeRef.current === conversationId)
+        setSendError(cause.message || 'Не удалось подготовить фото.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  function startReply(message) {
+    setReplyTo(message);
+    setPicker('');
+    draftRef.current?.focus();
+  }
+
+  // One reaction per person: tapping your own emoji again removes it.
+  async function react(message, emoji) {
+    setPicker('');
+    if (!canSend && !message.reactions?.some((reaction) => reaction.mine)) return;
+    const mine = message.reactions?.find((reaction) => reaction.mine)?.emoji;
+    try {
+      const result = await requestRef.current('messages.react', {
+        messageId: message.id,
+        emoji: mine === emoji ? null : emoji,
+      });
+      if (activeRef.current === message.conversationId)
+        setMessages((previous) => mergeMessages(previous, [result.message]));
+    } catch (cause) {
+      if (cause.name !== 'AbortError')
+        setMessageError(cause.message || 'Не удалось поставить реакцию.');
+    }
+  }
+
+  function showQuoted(id) {
+    const target = document.getElementById(`chat-message-${id}`);
+    if (!target) return;
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    target.classList.add('is-highlighted');
+    window.setTimeout(() => target.classList.remove('is-highlighted'), 1600);
+  }
+
+  const senderName = (senderId) =>
+    senderId === user.id ? 'Вы' : current?.peer?.name || 'Собеседник';
 
   return (
     <>
@@ -479,7 +573,11 @@ function MessagesContent() {
                     <strong>{conversation.peer?.name || 'Пользователь'}</strong>
                     <span>
                       {conversation.lastMessage?.text ||
-                        (conversation.lastMessage ? 'Образ' : 'Начните разговор')}
+                        (conversation.lastMessage
+                          ? conversation.lastMessage.photo
+                            ? '📷 Фото'
+                            : 'Образ'
+                          : 'Начните разговор')}
                     </span>
                     {conversation.lastMessage && (
                       <time dateTime={conversation.lastMessage.createdAt}>
@@ -572,12 +670,36 @@ function MessagesContent() {
                   {messages.map((message) => (
                     <li
                       key={message.id}
-                      className={`social-chat-message${message.senderId === user.id ? ' is-own' : ''}`}
+                      id={`chat-message-${message.id}`}
+                      className={`social-chat-message${message.senderId === user.id ? ' is-own' : ''}${message.reactions?.length ? ' has-reactions' : ''}`}
+                      onDoubleClick={() => canSend && react(message, '❤️')}
                     >
-                      <span className="sr-only">
-                        {message.senderId === user.id ? 'Вы' : current?.peer?.name || 'Собеседник'}
-                        :{' '}
-                      </span>
+                      <span className="sr-only">{senderName(message.senderId)}: </span>
+                      {message.replyTo && (
+                        <button
+                          type="button"
+                          className="social-chat-quote"
+                          disabled={message.replyTo.unavailable}
+                          onClick={() => showQuoted(message.replyTo.id)}
+                        >
+                          <strong>
+                            {message.replyTo.unavailable
+                              ? 'Ответ'
+                              : `↩ ${senderName(message.replyTo.senderId)}`}
+                          </strong>
+                          <span>{quoteText(message.replyTo)}</span>
+                        </button>
+                      )}
+                      {message.photo && (
+                        <a
+                          className="social-chat-photo"
+                          href={message.photo}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img src={message.photo} alt="Фото в сообщении" loading="lazy" />
+                        </a>
+                      )}
                       {message.text && <p>{message.text}</p>}
                       {message.post &&
                         (message.post.unavailable ? (
@@ -600,6 +722,60 @@ function MessagesContent() {
                       >
                         {displayDate(message.createdAt)}
                       </time>
+                      {message.reactions?.length > 0 && (
+                        <div className="social-chat-reactions">
+                          {message.reactions.map((reaction) => (
+                            <button
+                              type="button"
+                              key={reaction.emoji}
+                              className={reaction.mine ? 'is-mine' : ''}
+                              aria-pressed={reaction.mine}
+                              aria-label={`${reaction.emoji} ${reaction.count}${reaction.mine ? ', ваша реакция' : ''}`}
+                              onClick={() => react(message, reaction.emoji)}
+                            >
+                              {reaction.emoji}
+                              {reaction.count > 1 && <span>{reaction.count}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {canSend && (
+                        <div className="social-chat-tools">
+                          <button
+                            type="button"
+                            aria-label="Ответить на сообщение"
+                            title="Ответить"
+                            onClick={() => startReply(message)}
+                          >
+                            ↩
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Поставить реакцию"
+                            aria-expanded={picker === message.id}
+                            title="Реакция"
+                            onClick={() => setPicker(picker === message.id ? '' : message.id)}
+                          >
+                            ☺
+                          </button>
+                        </div>
+                      )}
+                      {picker === message.id && (
+                        <div className="social-chat-picker" role="group" aria-label="Реакции">
+                          {REACTIONS.map((emoji) => (
+                            <button
+                              type="button"
+                              key={emoji}
+                              aria-pressed={message.reactions?.some(
+                                (reaction) => reaction.mine && reaction.emoji === emoji,
+                              )}
+                              onClick={() => react(message, emoji)}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ol>
@@ -620,6 +796,34 @@ function MessagesContent() {
                 className="social-message-composer"
                 onSubmit={sendMessage}
               >
+                {replyTo && (
+                  <div className="social-message-replying">
+                    <span>
+                      <strong>Ответ: {senderName(replyTo.senderId)}</strong>
+                      <span>{quoteText(replyTo)}</span>
+                    </span>
+                    <AppButton
+                      className="icon-button"
+                      aria-label="Отменить ответ"
+                      onClick={() => setReplyTo(null)}
+                    >
+                      <Icon name="close" />
+                    </AppButton>
+                  </div>
+                )}
+                {photo && (
+                  <div className="social-message-photo">
+                    <img src={photo} alt="Фото к отправке" />
+                    <AppButton
+                      className="icon-button"
+                      aria-label="Убрать фото"
+                      disabled={sending === activeId}
+                      onClick={() => setPhoto('')}
+                    >
+                      <Icon name="close" />
+                    </AppButton>
+                  </div>
+                )}
                 {attachment && (
                   <div className="social-message-attachment">
                     <Icon name="outfits" />
@@ -639,6 +843,7 @@ function MessagesContent() {
                   hint="Отправка доступна по настройкам собеседника. До 2000 символов."
                 >
                   <textarea
+                    ref={draftRef}
                     name="message"
                     rows={3}
                     maxLength={2000}
@@ -689,6 +894,21 @@ function MessagesContent() {
                   </p>
                 )}
                 <div className="social-message-compose-actions">
+                  <input
+                    ref={photoInput}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    hidden
+                    onChange={choosePhoto}
+                  />
+                  <AppButton
+                    className="btn btn-ghost"
+                    disabled={!canSend || sending === activeId || photoBusy}
+                    onClick={() => photoInput.current?.click()}
+                  >
+                    <Icon name="image" />
+                    {photoBusy ? 'Готовим фото…' : 'Фото'}
+                  </AppButton>
                   <AppButton
                     className="btn btn-ghost"
                     disabled={!canSend || sending === activeId}
@@ -701,7 +921,13 @@ function MessagesContent() {
                   <AppButton
                     type="submit"
                     className="btn btn-primary"
-                    disabled={!canSend || !!sending || attaching || (!draft.trim() && !attachment)}
+                    disabled={
+                      !canSend ||
+                      !!sending ||
+                      attaching ||
+                      photoBusy ||
+                      (!draft.trim() && !attachment && !photo)
+                    }
                   >
                     {sending === activeId ? 'Отправляем…' : 'Отправить'}
                     <Icon name="arrow-right" />

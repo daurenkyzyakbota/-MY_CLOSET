@@ -616,3 +616,207 @@
     margin-inline-start: 10px;
   }
 }
+
+/* Chat: photos, replies and reactions. */
+.social-chat-message {
+  position: relative;
+  transition: box-shadow 0.3s;
+}
+.social-chat-message.has-reactions {
+  margin-bottom: 12px;
+}
+.social-chat-message.is-highlighted {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rose-deep) 35%, transparent);
+}
+.social-chat-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-inline-start: 3px solid var(--rose-deep);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.social-chat-quote:disabled {
+  cursor: default;
+}
+.social-chat-quote strong {
+  font-size: 11px;
+}
+.social-chat-quote span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.social-chat-photo {
+  display: block;
+  margin: 0 0 6px;
+}
+.social-chat-photo img {
+  display: block;
+  max-width: min(100%, 280px);
+  max-height: 320px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.social-chat-reactions {
+  position: absolute;
+  bottom: -14px;
+  left: 12px;
+  display: flex;
+  gap: 3px;
+}
+.social-chat-message.is-own .social-chat-reactions {
+  right: 12px;
+  left: auto;
+}
+.social-chat-reactions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 13px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.social-chat-reactions button.is-mine {
+  border-color: var(--rose-deep);
+  background: var(--rose-soft);
+}
+.social-chat-reactions button span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.social-chat-tools {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 6px);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.15s;
+}
+.social-chat-message.is-own .social-chat-tools {
+  right: calc(100% + 6px);
+  left: auto;
+  flex-direction: row-reverse;
+}
+.social-chat-message:hover .social-chat-tools,
+.social-chat-message:focus-within .social-chat-tools {
+  opacity: 1;
+}
+.social-chat-tools button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+.social-chat-tools button:hover {
+  background: var(--rose-soft);
+  color: var(--rose-deep);
+}
+.social-chat-picker {
+  position: absolute;
+  z-index: 3;
+  bottom: calc(100% + 6px);
+  left: 0;
+  display: flex;
+  gap: 2px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 8px 24px rgb(52 40 46 / 0.16);
+}
+.social-chat-message.is-own .social-chat-picker {
+  right: 0;
+  left: auto;
+}
+.social-chat-picker button {
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  font-size: 22px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.social-chat-picker button:hover,
+.social-chat-picker button[aria-pressed='true'] {
+  transform: scale(1.2);
+}
+.social-message-replying,
+.social-message-photo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-inline-start: 3px solid var(--rose-deep);
+  border-radius: 10px;
+  background: var(--appearance-inset, var(--rose-soft));
+}
+.social-message-replying > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12px;
+}
+.social-message-replying > span > span {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.social-message-photo {
+  justify-content: space-between;
+  border-inline-start: 0;
+}
+.social-message-photo img {
+  max-width: 120px;
+  max-height: 90px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+@media (hover: none) {
+  .social-chat-tools {
+    position: static;
+    justify-content: flex-end;
+    margin-top: 4px;
+    opacity: 1;
+    transform: none;
+  }
+  .social-chat-message.is-own .social-chat-tools {
+    justify-content: flex-start;
+  }
+  .social-chat-tools button {
+    width: 24px;
+    height: 24px;
+    background: none;
+    font-size: 14px;
+    opacity: 0.75;
+  }
+}

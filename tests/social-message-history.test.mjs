@@ -31,6 +31,7 @@ function fixture(initial = []) {
         if (sql.includes('FROM public.mycloset_profiles p WHERE')) return { rows: [profile] };
         if (sql.includes('SELECT c.* FROM public.mycloset_conversations'))
           return { rows: [{ id: conversationId, user_a: user.id, user_b: 'peer' }] };
+        if (sql.includes('FROM public.mycloset_message_reactions')) return { rows: [] };
         if (sql.includes('FROM public.mycloset_messages m JOIN')) {
           assert.match(sql, /mycloset_blocks/);
           if (sql.includes('m.id=ANY')) return { rows: records.filter((row) => values[1].includes(row.id)) };

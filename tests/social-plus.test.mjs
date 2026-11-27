@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createSocialService } from '../lib/social/service.js';
-import { SocialError, snapshot } from '../lib/social/validation.js';
+import { SocialError, hashtags, postInput, snapshot } from '../lib/social/validation.js';
 import { SOCIAL_PLUS_MIGRATION, ensureSocialPlusSchema } from '../lib/social/social-plus-schema.js';
 
 const viewer = { id: 'f9391930-aeed-43c9-bc52-c12792d9253a', name: 'Бота' };
@@ -83,7 +83,7 @@ test('migration 008 matches db/008-social-plus.sql and runs only when something 
       .trim(),
     SOCIAL_PLUS_MIGRATION,
   );
-  const ready = database(() => ({ rows: [{ tables: 4, columns: 3 }] }));
+  const ready = database(() => ({ rows: [{ tables: 5, columns: 3 }] }));
   assert.equal(await ensureSocialPlusSchema(ready.pool), false);
   assert.equal(ready.calls.length, 1);
   const old = database((sql) =>
@@ -489,4 +489,109 @@ test('a chat photo is served only to the two people in the conversation', async 
   const [call] = db.calls;
   assert.match(call.sql, /c\.user_a=\$1 OR c\.user_b=\$1/);
   assert.match(call.sql, /mycloset_blocks/);
+});
+
+test('@mentions notify people who can see the post, not the hidden or the already notified', async () => {
+  const seer = 'c0ffee00-0000-4000-8000-0000000000a1';
+  const hidden = 'c0ffee00-0000-4000-8000-0000000000a2';
+  const db = database((sql, values) => {
+    if (sql.includes('FROM public.mycloset_posts s JOIN'))
+      return { rows: values[0] === hidden ? [] : [postRow()] };
+    if (sql.startsWith('SELECT user_id FROM public.mycloset_profiles WHERE username=ANY')) {
+      assert.deepEqual(values[0], ['dana', 'aru', 'nobody']);
+      return { rows: [{ user_id: seer }, { user_id: otherId }, { user_id: hidden }] };
+    }
+    if (sql.startsWith('INSERT INTO public.mycloset_comments'))
+      return {
+        rows: [
+          {
+            id: values[0],
+            post_id: 'post',
+            user_id: viewer.id,
+            text: values[3],
+            parent_id: null,
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        ],
+      };
+    return profiles()(sql, values);
+  });
+  await createSocialService({ pool: db.pool }).execute(
+    'comments.save',
+    { postId: 'post', text: '@dana смотри! @ARU @nobody mail@example.com' },
+    viewer,
+  );
+  const kinds = db.calls
+    .filter(({ sql }) => sql.includes('INSERT INTO public.mycloset_notifications'))
+    .map(({ values }) => [values[5], values[2]]);
+  assert.deepEqual(kinds, [
+    [otherId, 'comment'],
+    [seer, 'mention'],
+  ]);
+});
+
+test('stories: only followers and friends see them, they last 24 hours and need a photo', async () => {
+  const story = {
+    id: 's1',
+    user_id: otherId,
+    caption: 'Образ дня',
+    created_at: '2026-11-27T09:00:00.000000Z',
+  };
+  const db = database((sql, values) => {
+    if (sql.includes('FROM public.mycloset_stories st JOIN')) return { rows: [story] };
+    return profiles()(sql, values);
+  });
+  const service = createSocialService({ pool: db.pool });
+  const { people } = await service.execute('stories.list', {}, viewer);
+  assert.equal(people.length, 1);
+  assert.equal(people[0].stories[0].photo, '/api/social/media?type=story&id=s1');
+  const list = db.calls.find(({ sql }) => sql.includes('FROM public.mycloset_stories st JOIN')).sql;
+  assert.match(list, /interval '24 hours'/);
+  assert.match(list, /mycloset_follows/);
+  assert.match(list, /mycloset_relationships/);
+  assert.match(list, /mycloset_blocks/);
+  await assert.rejects(
+    service.execute('stories.create', { caption: 'без фото' }, viewer),
+    (error) => error instanceof SocialError,
+  );
+  await service.execute('stories.create', { photo: PNG, caption: 'Сегодня так' }, viewer);
+  assert.ok(
+    db.calls.some(
+      ({ sql, values }) => sql.includes('mycloset_write_quotas') && values.includes('stories'),
+    ),
+  );
+  assert.ok(db.calls.some(({ sql }) => sql.startsWith('INSERT INTO public.mycloset_stories')));
+  const media = database((sql, values) => {
+    if (sql.startsWith('SELECT st.photo')) {
+      assert.match(sql, /mycloset_follows/);
+      return { rows: values[0] === viewer.id ? [{ photo: PNG }] : [] };
+    }
+  });
+  const mediaService = createSocialService({ pool: media.pool });
+  assert.equal(
+    (await mediaService.execute('media.get', { type: 'story', id: 's1' }, viewer)).photo,
+    PNG,
+  );
+  await assert.rejects(
+    mediaService.execute('media.get', { type: 'story', id: 's1' }, null),
+    (error) => error.status === 404,
+  );
+});
+
+test('#теги из описания добавляются к тегам публикации, без повторов и не больше десяти', () => {
+  assert.deepEqual(hashtags('Осень #осень #Уютно, #a #офис_стиль mail#x &#38;'), [
+    'осень',
+    'Уютно',
+    'офис_стиль',
+  ]);
+  const input = {
+    title: 'Образ',
+    description: 'На учёбу #Осень #минимализм #минимализм',
+    tags: ['осень'],
+    visibility: 'public',
+  };
+  assert.deepEqual(postInput(input).tags, ['осень', 'минимализм']);
+  const full = { ...input, tags: Array.from({ length: 10 }, (_, index) => `тег${index}`) };
+  assert.equal(postInput(full).tags.length, 10);
 });

@@ -1,7 +1,8 @@
 BEGIN;
 
 -- Instagram-style community: one-way follows, «А или Б» polls, comment replies
--- and likes, and richer direct messages (photo, reply, reactions).
+-- and likes, richer direct messages (photo, reply, reactions), 24-hour stories
+-- and @mentions.
 CREATE TABLE IF NOT EXISTS public.mycloset_follows (
   follower_id text NOT NULL REFERENCES public.mycloset_profiles(user_id) ON DELETE CASCADE,
   followee_id text NOT NULL REFERENCES public.mycloset_profiles(user_id) ON DELETE CASCADE,
@@ -49,9 +50,19 @@ CREATE TABLE IF NOT EXISTS public.mycloset_message_reactions (
   PRIMARY KEY (message_id,user_id)
 );
 
+-- Stories: a photo with a caption that disappears after 24 hours.
+CREATE TABLE IF NOT EXISTS public.mycloset_stories (
+  id text PRIMARY KEY,
+  user_id text NOT NULL REFERENCES public.mycloset_profiles(user_id) ON DELETE CASCADE,
+  photo text NOT NULL CHECK (photo <> '' AND octet_length(photo) <= 1500000),
+  caption text NOT NULL DEFAULT '' CHECK (char_length(caption) <= 200),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mycloset_stories_user_idx ON public.mycloset_stories(user_id,created_at DESC);
+
 ALTER TABLE public.mycloset_notifications DROP CONSTRAINT IF EXISTS mycloset_notifications_kind_check;
-ALTER TABLE public.mycloset_notifications ADD CONSTRAINT mycloset_notifications_kind_check CHECK (kind IN ('friend_request','friend_accepted','message','like','comment','follow','follow_request','reply'));
+ALTER TABLE public.mycloset_notifications ADD CONSTRAINT mycloset_notifications_kind_check CHECK (kind IN ('friend_request','friend_accepted','message','like','comment','follow','follow_request','reply','mention'));
 ALTER TABLE public.mycloset_write_quotas DROP CONSTRAINT IF EXISTS mycloset_write_quotas_category_check;
-ALTER TABLE public.mycloset_write_quotas ADD CONSTRAINT mycloset_write_quotas_category_check CHECK (category IN ('messages','comments','friend_requests','posts','reports','follows'));
+ALTER TABLE public.mycloset_write_quotas ADD CONSTRAINT mycloset_write_quotas_category_check CHECK (category IN ('messages','comments','friend_requests','posts','reports','follows','stories'));
 
 COMMIT;

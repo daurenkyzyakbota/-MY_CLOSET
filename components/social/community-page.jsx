@@ -5,7 +5,7 @@ import { Suspense, useEffect, useId, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSocial } from '@/components/providers/social-provider.jsx';
 import { AppButton } from '@/components/ui/app-button.jsx';
-import { EmptyState, Field, Icon, Loading } from '@/components/ui/ui.jsx';
+import { EmptyState, Field, Icon, ItemArt, Loading } from '@/components/ui/ui.jsx';
 import { OCCASIONS, STYLE_OPTIONS } from '@/lib/styling/stylist.js';
 import PostCard from './post-card.jsx';
 import ProfileEditor from './profile-editor.jsx';
@@ -317,7 +317,9 @@ function FeedExplorer({ scope, onScopeChange }) {
               placeholder="Название, описание или тег"
             />
           </label>
-          <AppButton type="submit" className="btn btn-primary">Найти</AppButton>
+          <AppButton type="submit" className="btn btn-primary">
+            Найти
+          </AppButton>
         </div>
 
         <div id={filterPanelId} hidden={!showFilters}>
@@ -342,7 +344,9 @@ function FeedExplorer({ scope, onScopeChange }) {
                   <option value={draft.occasion}>{draft.occasion}</option>
                 )}
                 {Object.entries(OCCASIONS).map(([key, label]) => (
-                  <option value={key} key={key}>{label}</option>
+                  <option value={key} key={key}>
+                    {label}
+                  </option>
                 ))}
               </select>
             </Field>
@@ -360,7 +364,9 @@ function FeedExplorer({ scope, onScopeChange }) {
                 {Object.entries(STYLE_OPTIONS)
                   .filter(([key]) => key !== 'any')
                   .map(([key, label]) => (
-                    <option value={key} key={key}>{label}</option>
+                    <option value={key} key={key}>
+                      {label}
+                    </option>
                   ))}
               </select>
             </Field>
@@ -386,7 +392,9 @@ function FeedExplorer({ scope, onScopeChange }) {
                 <Icon name="close" size={14} />
               </AppButton>
             ))}
-            <AppButton className="btn btn-ghost" onClick={reset}>Сбросить всё</AppButton>
+            <AppButton className="btn btn-ghost" onClick={reset}>
+              Сбросить всё
+            </AppButton>
           </div>
         )}
       </form>
@@ -408,7 +416,9 @@ function FeedExplorer({ scope, onScopeChange }) {
 function DiscoverPeople() {
   return (
     <aside className="community-discover social-surface" aria-labelledby="community-discover-title">
-      <span className="community-discover-icon" aria-hidden="true"><Icon name="users" /></span>
+      <span className="community-discover-icon" aria-hidden="true">
+        <Icon name="users" />
+      </span>
       <h2 id="community-discover-title">Найти людей</h2>
       <p>По имени или @нику.</p>
       <form action="/community" role="search" aria-label="Найти участников">
@@ -471,7 +481,9 @@ function PeoplePanel() {
               placeholder="Имя или @ник"
             />
           </label>
-          <AppButton type="submit" className="btn btn-primary">Найти</AppButton>
+          <AppButton type="submit" className="btn btn-primary">
+            Найти
+          </AppButton>
         </div>
       </form>
       <SocialNotice error onRetry={people.reload}>
@@ -691,7 +703,9 @@ function CommunityHeader({ social, postId, canPublish }) {
             >
               <Icon name="message" size={18} />
               <span>Сообщения</span>
-              {social.counts?.messages > 0 && <span className="social-count">{social.counts.messages}</span>}
+              {social.counts?.messages > 0 && (
+                <span className="social-count">{social.counts.messages}</span>
+              )}
             </Link>
             <Link
               href="/notifications"
@@ -699,19 +713,46 @@ function CommunityHeader({ social, postId, canPublish }) {
             >
               <Icon name="bell" size={18} />
               <span>Уведомления</span>
-              {social.counts?.notifications > 0 && <span className="social-count">{social.counts.notifications}</span>}
+              {social.counts?.notifications > 0 && (
+                <span className="social-count">{social.counts.notifications}</span>
+              )}
             </Link>
           </div>
         </div>
       </div>
       {!postId && (
-        <div className="community-hero-art" aria-hidden="true">
-          <img src="/assets/style-editorial.webp" alt="" />
+        <div className="community-hero-art community-hero-collage" aria-hidden="true">
+          {HERO_LOOKS.map((look) => (
+            <div className="community-collage-card" key={look.label}>
+              <div className="community-collage-art">
+                <ItemArt item={look.item} />
+              </div>
+              <span>
+                <strong>{look.label}</strong>
+                <small>{look.note}</small>
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </header>
   );
 }
+
+// Decorative examples for the header; they are not real posts.
+const HERO_LOOKS = [
+  {
+    label: 'Осенний слой',
+    note: 'Тренч и спокойные цвета',
+    item: { category: 'outerwear', colors: ['beige'] },
+  },
+  {
+    label: 'На учёбу',
+    note: 'Джинсы и белый верх',
+    item: { category: 'bottom', colors: ['blue'] },
+  },
+  { label: 'Вечер', note: 'Платье и одна деталь', item: { category: 'dress', colors: ['pink'] } },
+];
 
 function CommunityContent() {
   const params = useSearchParams();
@@ -738,15 +779,19 @@ function CommunityContent() {
         postId={postId}
         canPublish={!postId && social.ready && !cloudUnavailable}
       />
-      <SocialNotice error onRetry={social.refresh}>{social.error}</SocialNotice>
+      <SocialNotice error onRetry={social.refresh}>
+        {social.error}
+      </SocialNotice>
       {social.profile?.banned && (
         <SocialNotice error>
-          Ваш аккаунт заблокирован администратором. Смотреть ленту и читать сообщения можно,
-          а публиковать, комментировать, ставить лайки и писать — нельзя.
+          Ваш аккаунт заблокирован администратором. Смотреть ленту и читать сообщения можно, а
+          публиковать, комментировать, ставить лайки и писать — нельзя.
         </SocialNotice>
       )}
       {!social.ready ? (
-        <p className="social-loading" role="status">Открываем сообщество…</p>
+        <p className="social-loading" role="status">
+          Открываем сообщество…
+        </p>
       ) : (
         <>
           {!postId && (

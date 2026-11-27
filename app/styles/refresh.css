@@ -1,0 +1,293 @@
+/* Design refresh 2026-11: shorter sidebar, compact phone home, community collage. */
+
+/* Sidebar: rarely used sections fold under «Ещё». */
+.nav-more-toggle {
+  cursor: pointer;
+  font-family: inherit;
+}
+.nav-more-toggle > .icon:last-child {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  transition: transform 0.18s;
+}
+.nav-more-toggle.is-open > .icon:last-child {
+  transform: rotate(180deg);
+}
+.nav-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 4px 14px;
+  padding-left: 10px;
+  border-left: 1px solid #ffffff1a;
+}
+.nav-extra .nav-item {
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+/* Community header: example looks instead of the photo already used on the home page. */
+.community-hero-collage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 22px 18px;
+  background: linear-gradient(135deg, #f3e6e9, #ece4f3 60%, #e7efe6);
+}
+.community-collage-card {
+  width: 150px;
+  padding: 10px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 30px #4b2d3724;
+  color: #3b2a30;
+}
+.community-collage-card:nth-child(1) {
+  transform: rotate(-6deg) translateY(6px);
+}
+.community-collage-card:nth-child(2) {
+  z-index: 1;
+  margin: 0 -14px;
+  transform: rotate(3deg) translateY(-8px);
+}
+.community-collage-card:nth-child(3) {
+  transform: rotate(-2deg) translateY(10px);
+}
+.community-collage-art {
+  height: 112px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #f6efe9;
+}
+.community-collage-card:nth-child(2) .community-collage-art {
+  background: #e8eef5;
+}
+.community-collage-card:nth-child(3) .community-collage-art {
+  background: #f5e6ec;
+}
+.community-collage-art .clothing-art {
+  width: 100%;
+  height: 100%;
+}
+.community-collage-card > span {
+  display: block;
+  margin-top: 8px;
+  line-height: 1.3;
+}
+.community-collage-card strong {
+  display: block;
+  font-size: 12px;
+}
+.community-collage-card small {
+  color: #8a7178;
+  font-size: 11px;
+}
+[data-theme='dark'] .community-hero-collage {
+  background: linear-gradient(135deg, #2c2430, #2a2433 60%, #262c26);
+}
+[data-theme='dark'] .community-collage-card {
+  background: #241e29;
+  color: #f1e7ef;
+}
+
+/* Phone home: numbers first, the welcome banner becomes a short call to action. */
+@media (max-width: 760px) {
+  .dashboard-intro .today-date {
+    display: none;
+  }
+  .dashboard-intro {
+    margin-bottom: 14px;
+  }
+  .home-top {
+    display: flex;
+    flex-direction: column;
+  }
+  .home-top > .stats-grid {
+    order: -1;
+    margin-bottom: 16px;
+  }
+  .home-top .hero {
+    display: block;
+    height: auto;
+    min-height: 0;
+  }
+  .home-top .hero-art,
+  .home-top .hero-content .eyebrow,
+  .home-top .hero-content > p:not(.eyebrow) {
+    display: none;
+  }
+  .home-top .hero-content {
+    padding: 20px;
+  }
+  .home-top .hero-content h1 {
+    margin: 0 0 14px;
+    font-size: 30px;
+  }
+  .home-top .hero-content h1 br {
+    display: none;
+  }
+  .home-top .hero-content h1 em::before {
+    content: ' ';
+  }
+  .home-top .hero .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .home-top .hero .hero-actions > :is(.btn, .button) {
+    width: 100%;
+    min-width: 0;
+    gap: 6px;
+    padding: 10px 6px;
+    font-size: 13px;
+    white-space: nowrap;
+    justify-content: center;
+  }
+  .home-top .stats-grid .stat-card {
+    grid-template-columns: 36px minmax(0, 1fr);
+    min-height: 0;
+    padding: 12px;
+    gap: 2px 10px;
+  }
+  .home-top .stats-grid .stat-card .stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .home-top .stats-grid .stat-card strong {
+    font-size: 22px;
+  }
+  .home-top .stats-grid .stat-card > span:last-child {
+    font-size: 12px;
+    line-height: 1.3;
+  }
+}
+
+/* Stylist: rating, quick checks and one tip per outfit. */
+.outfit-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+.outfit-rating,
+.outfit-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.outfit-rating {
+  background: var(--rose-deep);
+  color: #fff;
+}
+.outfit-check.is-ok {
+  background: #eaf1e6;
+  color: #4d6b45;
+}
+.outfit-check.is-warn {
+  background: #fbefe4;
+  color: #9a5a2c;
+}
+.recommendation-tip {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 10px 0 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--rose-soft);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.recommendation-tip .icon {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: var(--rose-deep);
+}
+[data-theme='dark'] .outfit-rating {
+  color: #18151c;
+}
+[data-theme='dark'] .outfit-check.is-ok {
+  background: #2f3a2b;
+  color: #c3d8b2;
+}
+[data-theme='dark'] .outfit-check.is-warn {
+  background: #3a2f26;
+  color: #e3b58f;
+}
+
+/* Admin panel: overview with reports that need attention and new sign-ups. */
+.admin-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 8px;
+}
+.admin-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.admin-section-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+}
+.admin-section-head a {
+  color: var(--rose-deep);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.admin-new-users ul {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-new-users li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.admin-new-users li > span:nth-child(2) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.admin-avatar {
+  display: grid;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--rose-soft);
+  color: var(--rose-deep);
+  font-weight: 700;
+}
+.admin-exit {
+  color: #d3c3cb;
+  text-decoration: none;
+}
+@media (max-width: 900px) {
+  .admin-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

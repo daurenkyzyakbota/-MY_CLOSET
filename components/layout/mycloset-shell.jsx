@@ -19,18 +19,21 @@ const navigation = [
   { href: '/wardrobe', key: 'wardrobe', label: 'Мой гардероб', icon: 'wardrobe' },
   { href: '/stylist', key: 'stylist', label: 'Стилист', icon: 'sparkle' },
   { href: '/outfits', key: 'outfits', label: 'Мои образы', icon: 'outfits' },
-  { href: '/shopping-list', key: 'shopping', label: 'Покупки', icon: 'shopping' },
-  { href: '/favorites', key: 'favorites', label: 'Избранное', icon: 'heart' },
   { href: '/calendar', key: 'calendar', label: 'Календарь', icon: 'calendar' },
-  { href: '/insights', key: 'insights', label: 'История и статистика', icon: 'chart' },
   { href: '/community', key: 'community', label: 'Сообщество', icon: 'users' },
   { href: '/messages', key: 'messages', label: 'Сообщения', icon: 'message' },
+];
+// Less frequent sections live under «Ещё» so the sidebar fits on a laptop screen.
+const extraNavigation = [
+  { href: '/shopping-list', key: 'shopping', label: 'Покупки', icon: 'shopping' },
+  { href: '/favorites', key: 'favorites', label: 'Избранное', icon: 'heart' },
+  { href: '/insights', key: 'insights', label: 'История и статистика', icon: 'chart' },
   { href: '/notifications', key: 'notifications', label: 'Уведомления', icon: 'bell' },
+  { href: '/devices', key: 'devices', label: 'На ваших устройствах', icon: 'phone' },
+  { href: '/trash', key: 'trash', label: 'Корзина', icon: 'trash' },
 ];
 const secondary = [
   { href: '/account', key: 'account', label: 'Аккаунт', icon: 'user' },
-  { href: '/devices', key: 'devices', label: 'На ваших устройствах', icon: 'phone' },
-  { href: '/trash', key: 'trash', label: 'Корзина', icon: 'trash' },
   { href: '/settings', key: 'settings', label: 'Настройки', icon: 'settings' },
 ];
 // Shown only to administrators; the server checks the role on every admin action.
@@ -41,6 +44,12 @@ const adminItem = {
   icon: 'lock',
   description: 'Жалобы, пользователи и роли',
 };
+// Inside the admin panel the menu shows only its three sections.
+const adminNavigation = [
+  { href: '/admin', key: 'admin-home', label: 'Главное', icon: 'home', exact: true },
+  { href: '/admin/reports', key: 'admin-reports', label: 'Жалобы', icon: 'warning' },
+  { href: '/admin/users', key: 'admin-users', label: 'Пользователи', icon: 'users' },
+];
 const mobile = [
   { href: '/', key: 'home', label: 'Главная', icon: 'home' },
   { href: '/wardrobe', key: 'wardrobe', label: 'Гардероб', icon: 'wardrobe' },
@@ -129,6 +138,7 @@ export default function MyClosetShell({ children }) {
   const pathname = usePathname();
   const [adding, setAdding] = useState(false);
   const [more, setMore] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   useEffect(() => {
     setAdding(false);
@@ -152,16 +162,26 @@ export default function MyClosetShell({ children }) {
     return () => window.removeEventListener('keydown', shortcut);
   }, [ready, searching]);
   const active = (href) =>
-    href === '/'
-      ? pathname === '/'
-      : pathname === href ||
-        pathname.startsWith(`${href}/`) ||
-        (href === '/settings' && pathname === '/profile') ||
-        (href === '/community' && pathname.startsWith('/people/'));
+    href === '/admin'
+      ? pathname === '/admin'
+      : href === '/'
+        ? pathname === '/'
+        : pathname === href ||
+          pathname.startsWith(`${href}/`) ||
+          (href === '/settings' && pathname === '/profile') ||
+          (href === '/community' && pathname.startsWith('/people/'));
   const isAdmin = !!social.profile?.isAdmin;
+  const adminMode = isAdmin && (pathname === '/admin' || pathname.startsWith('/admin/'));
   const secondaryItems = isAdmin ? [adminItem, ...secondary] : secondary;
   const moreMenuItems = isAdmin ? [...moreItems, adminItem] : moreItems;
-  const current = [...navigation, ...secondaryItems].find((item) => active(item.href));
+  const current = [
+    ...(adminMode ? adminNavigation : []),
+    ...navigation,
+    ...extraNavigation,
+    ...secondaryItems,
+  ].find((item) => active(item.href));
+  const extraActive = extraNavigation.some((item) => active(item.href));
+  const showExtra = extraOpen || extraActive;
   useEffect(() => {
     setMore(false);
   }, [pathname]);
@@ -199,15 +219,44 @@ export default function MyClosetShell({ children }) {
               <small>ВАШ ЛИЧНЫЙ СТИЛЬ</small>
             </span>
           </Link>
-          <div className="nav-caption">МОЁ ПРОСТРАНСТВО</div>
-          <nav className="desktop-nav">{navigation.map(navLink)}</nav>
+          <div className="nav-caption">{adminMode ? 'АДМИН-ПАНЕЛЬ' : 'МОЁ ПРОСТРАНСТВО'}</div>
+          {adminMode ? (
+            <nav className="desktop-nav">{adminNavigation.map(navLink)}</nav>
+          ) : (
+            <nav className="desktop-nav">
+              {navigation.map(navLink)}
+              <button
+                type="button"
+                className={`nav-item nav-more-toggle${showExtra ? ' is-open' : ''}`}
+                aria-expanded={showExtra}
+                aria-controls="nav-extra"
+                onClick={() => setExtraOpen((open) => !open)}
+              >
+                <Icon name="more" />
+                <span>Ещё</span>
+                <Icon name="chevron-down" size={16} />
+              </button>
+              {showExtra && (
+                <div id="nav-extra" className="nav-extra">
+                  {extraNavigation.map(navLink)}
+                </div>
+              )}
+            </nav>
+          )}
           <div className="sidebar-style-note">
             <Icon name="sparkle" />
             <strong>Место для вашего стиля</strong>
             <p>Любимые вещи. Новые сочетания. Немного вдохновения каждый день.</p>
           </div>
           <div className="sidebar-bottom">
-            {secondaryItems.map(navLink)}
+            {adminMode ? (
+              <Link className="nav-item admin-exit" href="/">
+                <Icon name="chevron-left" />
+                <span>В мой гардероб</span>
+              </Link>
+            ) : (
+              secondaryItems.map(navLink)
+            )}
             <SaveIndicator />
           </div>
         </aside>
@@ -289,7 +338,7 @@ export default function MyClosetShell({ children }) {
         </div>
       </div>
       <nav className="mobile-nav" aria-label="Основная навигация на телефоне">
-        {mobile.map((item) => (
+        {(adminMode ? adminNavigation : mobile).map((item) => (
           <Link
             key={item.key}
             href={item.href}

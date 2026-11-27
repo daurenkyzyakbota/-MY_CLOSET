@@ -76,7 +76,7 @@ function Stats({ stats }) {
   );
 }
 
-function ReportsTab({ onChanged }) {
+function ReportsTab({ onChanged, compact = false }) {
   const { request } = useSocial();
   const [status, setStatus] = useState('open');
   const list = useAdminList('admin.reports.list', { status }, 'reports');
@@ -95,8 +95,10 @@ function ReportsTab({ onChanged }) {
     await Promise.all([list.reload(), onChanged()]);
   }
 
+  const reports = compact ? list.items.slice(0, 3) : list.items;
   return (
     <section aria-label="Жалобы">
+      {!compact && (
       <div className="life-tabs" role="group" aria-label="Статус жалоб">
         {[
           ['open', 'Новые'],
@@ -115,6 +117,7 @@ function ReportsTab({ onChanged }) {
           </AppButton>
         ))}
       </div>
+      )}
       <SocialNotice>{notice}</SocialNotice>
       <SocialNotice error onRetry={list.reload}>
         {list.error}
@@ -133,7 +136,7 @@ function ReportsTab({ onChanged }) {
         />
       ) : (
         <ul className="admin-list">
-          {list.items.map((report) => (
+          {reports.map((report) => (
             <li className="admin-card" key={report.id}>
               <div className="admin-card-head">
                 <span className="tag">
@@ -283,8 +286,9 @@ function UsersTab({ onChanged }) {
       <div className="life-tabs" role="group" aria-label="Фильтр пользователей">
         {[
           ['all', 'Все'],
-          ['admins', 'Администраторы'],
+          ['reported', 'С жалобами'],
           ['banned', 'Заблокированные'],
+          ['admins', 'Администраторы'],
         ].map(([value, label]) => (
           <AppButton
             key={value}
@@ -367,11 +371,10 @@ function UsersTab({ onChanged }) {
   );
 }
 
-function AdminContent() {
+function AdminContent({ section }) {
   const { profile, request } = useSocial();
   const requestRef = useRef(request);
   requestRef.current = request;
-  const [tab, setTab] = useState('reports');
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
   const loadStats = useCallback(async (signal) => {
@@ -410,43 +413,78 @@ function AdminContent() {
       <SocialNotice error onRetry={() => loadStats()}>
         {error}
       </SocialNotice>
-      <Stats stats={stats} />
-      <div className="life-tabs admin-tabs" role="tablist" aria-label="Раздел админ-панели">
-        {[
-          ['reports', `Жалобы${stats?.openReports ? ` · ${stats.openReports}` : ''}`],
-          ['users', 'Пользователи'],
-        ].map(([value, label]) => (
-          <AppButton
-            key={value}
-            role="tab"
-            aria-selected={tab === value}
-            className={`wardrobe-chip${tab === value ? ' is-active' : ''}`}
-            onClick={() => setTab(value)}
-          >
-            {label}
-          </AppButton>
-        ))}
-      </div>
-      {tab === 'reports' ? (
+      {section === 'reports' ? (
         <ReportsTab onChanged={() => loadStats()} />
-      ) : (
+      ) : section === 'users' ? (
         <UsersTab onChanged={() => loadStats()} />
+      ) : (
+        <>
+          <Stats stats={stats} />
+          <div className="admin-overview">
+            <section className="admin-overview-main">
+              <div className="admin-section-head">
+                <h2>Требуют внимания</h2>
+                <Link href="/admin/reports">Все жалобы →</Link>
+              </div>
+              <ReportsTab compact onChanged={() => loadStats()} />
+            </section>
+            <NewUsers />
+          </div>
+        </>
       )}
     </>
   );
 }
 
-export default function AdminPage() {
+function NewUsers() {
+  const list = useAdminList('admin.users.list', { filter: 'new' }, 'users');
+  return (
+    <section className="admin-card admin-new-users" aria-label="Новые пользователи">
+      <div className="admin-section-head">
+        <h2>Новые пользователи</h2>
+        <Link href="/admin/users">Все →</Link>
+      </div>
+      {!list.ready ? (
+        <Loading />
+      ) : list.items.length === 0 ? (
+        <p className="admin-muted">Пока никого.</p>
+      ) : (
+        <ul>
+          {list.items.slice(0, 6).map((user) => (
+            <li key={user.id}>
+              <span className="admin-avatar" aria-hidden="true">
+                {(user.name || user.username || '?').slice(0, 1).toUpperCase()}
+              </span>
+              <span>
+                {personLink(user)}
+                <small className="admin-muted">
+                  публикаций: {user.posts}
+                  {user.reports > 0 ? ` · жалоб: ${user.reports}` : ''}
+                </small>
+              </span>
+              <small className="admin-muted">{socialDate(user.createdAt)}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+const SECTIONS = {
+  overview: ['Главное', 'Что происходит в сообществе сегодня.'],
+  reports: ['Жалобы', 'Разберите жалобы на публикации и профили.'],
+  users: ['Пользователи', 'Поиск, роли и блокировки.'],
+};
+
+export default function AdminPage({ section = 'overview' }) {
   const { user } = useSocial();
+  const [title, description] = SECTIONS[section] || SECTIONS.overview;
   return (
     <div className="admin-page">
-      <PageHeader
-        eyebrow="УПРАВЛЕНИЕ"
-        title="Админ-панель"
-        description="Жалобы сообщества, пользователи и роли."
-      />
+      <PageHeader eyebrow="АДМИН-ПАНЕЛЬ" title={title} description={description} />
       <SocialGate>
-        <AdminContent key={user?.id || 'guest'} />
+        <AdminContent key={user?.id || 'guest'} section={section} />
       </SocialGate>
     </div>
   );

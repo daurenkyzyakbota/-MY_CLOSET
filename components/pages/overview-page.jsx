@@ -344,83 +344,85 @@ export default function OverviewPage() {
           {dayLabel}
         </span>
       </div>
-      <section className="hero">
-        <div className="hero-content">
-          <p className="eyebrow">ГАРДЕРОБ, КОТОРЫЙ ВДОХНОВЛЯЕТ</p>
-          <h1>
-            Ваш стиль
-            <br />
-            <em>начинается здесь.</em>
-          </h1>
-          <p>
-            Любимые вещи — в одном месте.
-            <br />
-            Собирайте образы и планируйте, что надеть.
-          </p>
-          <div className="hero-actions">
-            <Link href="/stylist" className="btn btn-primary">
-              <Icon name="sparkle" />
-              Подобрать образ
-            </Link>
-            <AppButton type="button" className="btn btn-secondary" onClick={() => setIdea({})}>
-              <Icon name="plus" />
-              Собрать вручную
-            </AppButton>
-          </div>
-        </div>
-        <div className="hero-art">
-          <img
-            className="hero-photo"
-            src="/assets/style-editorial.webp"
-            alt="Вдохновение: белая рубашка, джинсы и аксессуары в спокойных оттенках"
-            fetchPriority="high"
-          />
-          <div className="hero-photo-label">
-            <Icon name="sparkle" />
-            <div>
-              <strong>Простота. Детали. Вы.</strong>
-              <span>Идея для вдохновения</span>
+      <div className="home-top">
+        <section className="hero">
+          <div className="hero-content">
+            <p className="eyebrow">ГАРДЕРОБ, КОТОРЫЙ ВДОХНОВЛЯЕТ</p>
+            <h1>
+              Ваш стиль
+              <br />
+              <em>начинается здесь.</em>
+            </h1>
+            <p>
+              Любимые вещи — в одном месте.
+              <br />
+              Собирайте образы и планируйте, что надеть.
+            </p>
+            <div className="hero-actions">
+              <Link href="/stylist" className="btn btn-primary">
+                <Icon name="sparkle" />
+                Подобрать образ
+              </Link>
+              <AppButton type="button" className="btn btn-secondary" onClick={() => setIdea({})}>
+                <Icon name="plus" />
+                Собрать вручную
+              </AppButton>
             </div>
           </div>
-        </div>
-      </section>
-      <div className="stats-grid bootstrap-layout">
-        <div className="row bootstrap-stats-row">
-          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
-            <Link className="stat-card" href="/wardrobe" data-nav="wardrobe">
-              <span className="stat-icon">
-                <Icon name="wardrobe" />
-              </span>
-              <strong>{state.items.length}</strong>
-              <span>Вещей в гардеробе</span>
-            </Link>
+          <div className="hero-art">
+            <img
+              className="hero-photo"
+              src="/assets/style-editorial.webp"
+              alt="Вдохновение: белая рубашка, джинсы и аксессуары в спокойных оттенках"
+              fetchPriority="high"
+            />
+            <div className="hero-photo-label">
+              <Icon name="sparkle" />
+              <div>
+                <strong>Простота. Детали. Вы.</strong>
+                <span>Идея для вдохновения</span>
+              </div>
+            </div>
           </div>
-          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
-            <Link className="stat-card" href="/outfits" data-nav="outfits">
-              <span className="stat-icon">
-                <Icon name="outfits" />
-              </span>
-              <strong>{state.outfits.length}</strong>
-              <span>Сохранённых образов</span>
-            </Link>
-          </div>
-          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
-            <Link className="stat-card" href="/favorites" data-nav="favorites">
-              <span className="stat-icon">
-                <Icon name="heart" />
-              </span>
-              <strong>{favorites}</strong>
-              <span>В избранном</span>
-            </Link>
-          </div>
-          <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
-            <Link className="stat-card" href="/calendar" data-nav="calendar">
-              <span className="stat-icon">
-                <Icon name="calendar" />
-              </span>
-              <strong>{state.plans.filter((plan) => plan.date >= today).length}</strong>
-              <span>Предстоящих планов</span>
-            </Link>
+        </section>
+        <div className="stats-grid bootstrap-layout">
+          <div className="row bootstrap-stats-row">
+            <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+              <Link className="stat-card" href="/wardrobe" data-nav="wardrobe">
+                <span className="stat-icon">
+                  <Icon name="wardrobe" />
+                </span>
+                <strong>{state.items.length}</strong>
+                <span>Вещей в гардеробе</span>
+              </Link>
+            </div>
+            <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+              <Link className="stat-card" href="/outfits" data-nav="outfits">
+                <span className="stat-icon">
+                  <Icon name="outfits" />
+                </span>
+                <strong>{state.outfits.length}</strong>
+                <span>Сохранённых образов</span>
+              </Link>
+            </div>
+            <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+              <Link className="stat-card" href="/favorites" data-nav="favorites">
+                <span className="stat-icon">
+                  <Icon name="heart" />
+                </span>
+                <strong>{favorites}</strong>
+                <span>В избранном</span>
+              </Link>
+            </div>
+            <div className="col-6 col-sm-3 bootstrap-grid-col d-flex">
+              <Link className="stat-card" href="/calendar" data-nav="calendar">
+                <span className="stat-icon">
+                  <Icon name="calendar" />
+                </span>
+                <strong>{state.plans.filter((plan) => plan.date >= today).length}</strong>
+                <span>Предстоящих планов</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
